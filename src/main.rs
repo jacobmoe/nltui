@@ -17,28 +17,38 @@ use unicode_width::UnicodeWidthStr;
 use crate::util::event::{Event, Events};
 
 #[derive(Clone, Debug)]
-struct Item<'a> {
-    id: &'a str,
-    name: &'a str,
-    list: Vec<String>,
+struct Item {
+    id: String,
+    name: String,
+    items: Vec<Item>,
 }
 
-struct App<'a> {
-    items: Vec<Item<'a>>,
+impl Item{
+    pub fn new(id: String, name: String) -> Item {
+        Item{
+            id: id,
+            name: name,
+            items: Vec::new(),
+        }
+    }
+}
+
+struct App{
+    items: Vec<Item>,
     selected: Option<usize>,
     item_primary_style: Style,
     item_secondary_style: Style,
     input: String,
 }
 
-impl<'a> App<'a> {
-    fn new() -> App<'a> {
+impl App {
+    fn new() -> App {
         let items = vec![
-            Item{id: "item1id", name: "item1name", list: Vec::new()},
-            Item{id: "item2id", name: "item2name", list: Vec::new()},
-            Item{id: "item3id", name: "item3name", list: Vec::new()},
-            Item{id: "item4id", name: "item4name", list: Vec::new()},
-            Item{id: "item5id", name: "item5name", list: Vec::new()},
+            Item{id: String::from("item1id"), name: String::from("item1name"), items: Vec::new()},
+            Item{id: String::from("item2id"), name: String::from("item2name"), items: Vec::new()},
+            Item{id: String::from("item3id"), name: String::from("item3name"), items: Vec::new()},
+            Item{id: String::from("item4id"), name: String::from("item4name"), items: Vec::new()},
+            Item{id: String::from("item5id"), name: String::from("item5name"), items: Vec::new()},
         ];
 
         App{
@@ -77,7 +87,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
             let style = Style::default().fg(Color::Black).bg(Color::White);
             SelectableList::default()
                 .block(Block::default().borders(Borders::ALL).title("List"))
-                .items(&app.items.iter().map(|i| { i.name }).collect::<Vec<_>>())
+                .items(&app.items.iter().map(|i| { i.name.clone() }).collect::<Vec<_>>())
                 .select(app.selected)
                 .style(style)
                 .highlight_style(style.fg(Color::LightGreen).modifier(Modifier::BOLD))
@@ -105,9 +115,9 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                         .start_corner(Corner::TopLeft)
                         .render(&mut f, chunks[1]);
 
-                    let item_list = app.items[index].list.iter().map(|i| {
+                    let item_list = app.items[index].items.iter().map(|i| {
                         Text::styled(
-                            format!("{}", i),
+                            format!("{}", i.name),
                             app.item_secondary_style,
                         )
                     });
@@ -176,10 +186,10 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                             match app.selected {
                                 Some(index) => {
                                     let list = app.items[index]
-                                        .list
+                                        .items
                                         .iter()
                                         .enumerate()
-                                        .map(|(i, m)| Text::raw(format!("{}: {}", i, m)));
+                                        .map(|(i, m)| Text::raw(format!("{}: {}", i, m.name)));
                                     List::new(list)
                                         .block(Block::default().borders(Borders::ALL).title("List"))
                                         .render(&mut f, chunks[1]);
@@ -208,8 +218,11 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                                 Key::Char('\n') => {
                                     match app.selected {
                                         Some(index) => {
-                                            let input = app.input.drain(..).collect();
-                                            app.items[index].list.push(input);
+                                            let input: String = app.input.drain(..).collect();
+                                            let id = input.clone();
+                                            let name = input.clone();
+                                            let item = Item::new(id, name);
+                                            app.items[index].items.push(item);
                                         }
                                         None => {}
                                     }

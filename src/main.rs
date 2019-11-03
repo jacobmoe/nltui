@@ -22,6 +22,7 @@ struct Page{
     name: String,
     items: Vec<Item>,
     selected: Option<usize>,
+    previous: Option<Box<Page>>,
 }
 
 impl Page{
@@ -31,6 +32,7 @@ impl Page{
             name: name,
             items: Vec::new(),
             selected: None,
+            previous: None,
         }
     }
 }
@@ -114,7 +116,11 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                 .style(Style::default().bg(Color::Black));
 
             let title = format!("{}: {}", app.page.page_type, app.page.name);
-            Paragraph::new([Text::styled(title, Style::default().fg(Color::Red))].iter())
+            Paragraph::new([
+                Text::styled(
+                    title,
+                    Style::default().fg(Color::Red).modifier(Modifier::BOLD),
+                )].iter())
                 .block(block.clone())
                 .alignment(Alignment::Center)
                 .render(&mut f, wrapper_chunks[0]);
@@ -215,9 +221,6 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     } else {
                         Some(0)
                     }
-                }
-                Key::Char('\n') => {
-                    println!("{:?}", app.page.selected)
                 }
                 Key::Char('a') => {
                     println!("{:?}", app.page.selected);

@@ -58,40 +58,28 @@ impl Item{
 
 struct App{
     list: List,
-    item_primary_style: Style,
-    item_secondary_style: Style,
-    input: String,
 }
 
 impl App {
-    fn new() -> App {
-        let items = vec![
-            Item{id: String::from("item1id"), name: String::from("item1name"), list: List::new(String::from("item"), String::from("item1"))},
-            Item{id: String::from("item2id"), name: String::from("item2name"), list: List::new(String::from("item"), String::from("item2"))},
-            Item{id: String::from("item3id"), name: String::from("item3name"), list: List::new(String::from("item"), String::from("item3"))},
-            Item{id: String::from("item4id"), name: String::from("item4name"), list: List::new(String::from("item"), String::from("item4"))},
-            Item{id: String::from("item5id"), name: String::from("item5name"), list: List::new(String::from("item"), String::from("item5"))},
-        ];
-
-        let mut list = List::new(String::from("list type"), String::from("list name"));
-        list.items = items;
-        list.selected = Some(0);
-
-        App{
-            list: list,
-            item_primary_style: Style::default().fg(Color::White),
-            item_secondary_style: Style::default().fg(Color::Yellow),
-            input: String::new(),
-        }
-    }
 }
 
 fn main() -> Result<(), failure::Error> {
-    let app = App::new();
-    run(app)
+    let items = vec![
+        Item{id: String::from("item1id"), name: String::from("item1name"), list: List::new(String::from("item"), String::from("item1"))},
+        Item{id: String::from("item2id"), name: String::from("item2name"), list: List::new(String::from("item"), String::from("item2"))},
+        Item{id: String::from("item3id"), name: String::from("item3name"), list: List::new(String::from("item"), String::from("item3"))},
+        Item{id: String::from("item4id"), name: String::from("item4name"), list: List::new(String::from("item"), String::from("item4"))},
+        Item{id: String::from("item5id"), name: String::from("item5name"), list: List::new(String::from("item"), String::from("item5"))},
+    ];
+
+    let mut list = List::new(String::from("list type"), String::from("list name"));
+    list.items = items;
+    list.selected = Some(0);
+
+    run(list)
 }
 
-fn run(mut app: App) -> Result<(), failure::Error> {
+fn run(mut list: List) -> Result<(), failure::Error> {
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
@@ -117,7 +105,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                 .border_style(Style::default().fg(Color::White))
                 .style(Style::default().bg(Color::Black));
 
-            let title = format!("{}: {}", app.list.list_type, app.list.name);
+            let title = format!("{}: {}", list.list_type, list.name);
             Paragraph::new([
                 Text::styled(
                     title,
@@ -146,16 +134,16 @@ fn run(mut app: App) -> Result<(), failure::Error> {
             let style = Style::default().fg(Color::Black).bg(Color::White);
             SelectableList::default()
                 .block(Block::default().borders(Borders::ALL).title("Menu"))
-                .items(&app.list.items.iter().map(|i| { i.name.clone() }).collect::<Vec<_>>())
-                .select(app.list.selected)
+                .items(&list.items.iter().map(|i| { i.name.clone() }).collect::<Vec<_>>())
+                .select(list.selected)
                 .style(style)
                 .highlight_style(style.fg(Color::LightGreen).modifier(Modifier::BOLD))
                 .highlight_symbol("=>")
                 .render(&mut f, primary_chunks[0]);
 
-            match app.list.selected {
+            match list.selected {
                 Some(index) => {
-                    let item = app.list.items[index].clone();
+                    let item = list.items[index].clone();
 
                     let fields = vec![
                         format!("Item ID: {}", item.id),
@@ -165,7 +153,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     let item_info = fields.iter().map(|i| {
                         Text::styled(
                             format!("{}", i),
-                            app.item_primary_style,
+                            Style::default().fg(Color::White),
                         )
                     });
 
@@ -174,10 +162,10 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                         .start_corner(Corner::TopLeft)
                         .render(&mut f, info_chunks[0]);
 
-                    let item_list = app.list.items[index].list.items.iter().map(|i| {
+                    let item_list = list.items[index].list.items.iter().map(|i| {
                         Text::styled(
                             format!("{}", i.name),
-                            app.item_secondary_style,
+                            Style::default().fg(Color::Yellow),
                         )
                     });
 
@@ -197,19 +185,19 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     break;
                 }
                 Key::Char('q') => {
-                    match app.list.previous {
+                    match list.previous {
                         Some(prev_list) => {
-                            app.list = *prev_list;
+                            list = *prev_list;
                         }
                         None => { break; }
                     }
                 }
                 Key::Left => {
-                    app.list.selected = None;
+                    list.selected = None;
                 }
                 Key::Down => {
-                    app.list.selected = if let Some(selected) = app.list.selected {
-                        if selected >= app.list.items.len() - 1 {
+                    list.selected = if let Some(selected) = list.selected {
+                        if selected >= list.items.len() - 1 {
                             Some(0)
                         } else {
                             Some(selected + 1)
@@ -219,19 +207,21 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     };
                 }
                 Key::Up => {
-                    app.list.selected = if let Some(selected) = app.list.selected {
+                    list.selected = if let Some(selected) = list.selected {
                         if selected > 0 {
                             Some(selected - 1)
                         } else {
-                            Some(app.list.items.len() - 1)
+                            Some(list.items.len() - 1)
                         }
                     } else {
                         Some(0)
                     }
                 }
                 Key::Char('a') => {
+                    let mut user_input: String = String::new();
+
                     'input: loop {
-                        draw_add_menu(&mut terminal, &app)?;
+                        draw_add_menu(&mut terminal, &list, user_input.clone())?;
 
                         // Handle input
                         match events.next()? {
@@ -243,22 +233,24 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                                     break;
                                 }
                                 Key::Char('\n') => {
-                                    match app.list.selected {
-                                        Some(index) => {
-                                            let input: String = app.input.drain(..).collect();
-                                            let id = input.clone();
-                                            let name = input.clone();
-                                            let item = Item::new(String::from("Item"), id, name);
-                                            app.list.items[index].list.items.push(item);
+                                    if user_input != "" {
+                                        match list.selected {
+                                            Some(index) => {
+                                                let input: String = user_input.drain(..).collect();
+                                                let id = input.clone();
+                                                let name = input.clone();
+                                                let item = Item::new(String::from("Item"), id, name);
+                                                list.items[index].list.items.push(item);
+                                            }
+                                            None => {}
                                         }
-                                        None => {}
                                     }
                                 }
                                 Key::Char(c) => {
-                                    app.input.push(c);
+                                    user_input.push(c);
                                 }
                                 Key::Backspace => {
-                                    app.input.pop();
+                                    user_input.pop();
                                 }
                                 _ => {}
                             },
@@ -267,14 +259,14 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     };
                 }
                 Key::Char('e') => {
-                    match app.list.selected {
+                    match list.selected {
                         Some(index) => {
-                            let list = app.list.clone();
-                            let mut next_list = app.list.items[index].list.clone();
+                            let current_list = list.clone();
+                            let mut next_list = list.items[index].list.clone();
 
                             if next_list.items.len() > 0 {
-                                next_list.previous = Some(Box::new(list));
-                                app.list = next_list;
+                                next_list.previous = Some(Box::new(current_list));
+                                list = next_list;
                             }
                         }
                         None => {}
@@ -289,21 +281,21 @@ fn run(mut app: App) -> Result<(), failure::Error> {
     Ok(())
 }
 
-fn draw_add_menu(terminal: &mut Term, app: &App) -> Result<(), failure::Error> {
+fn draw_add_menu(terminal: &mut Term, list: &List, user_input: String) -> Result<(), failure::Error> {
     terminal.draw(|mut f| {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(2)
             .constraints([Constraint::Length(3), Constraint::Min(1)].as_ref())
             .split(f.size());
-        Paragraph::new([Text::raw(&app.input)].iter())
+        Paragraph::new([Text::raw(&user_input)].iter())
             .style(Style::default().fg(Color::Yellow))
             .block(Block::default().borders(Borders::ALL).title("Input"))
             .render(&mut f, chunks[0]);
 
-        match app.list.selected {
+        match list.selected {
             Some(index) => {
-                let list = app.list.items[index].list
+                let list = list.items[index].list
                     .items
                     .iter()
                     .enumerate()
@@ -319,7 +311,7 @@ fn draw_add_menu(terminal: &mut Term, app: &App) -> Result<(), failure::Error> {
     write!(
         terminal.backend_mut(),
         "{}",
-        Goto(4 + app.input.width() as u16, 4)
+        Goto(4 + user_input.width() as u16, 4)
     )?;
     // stdout is buffered, flush it to see the effect immediately when hitting backspace
     io::stdout().flush().ok();

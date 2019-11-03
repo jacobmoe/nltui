@@ -16,6 +16,8 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::util::event::{Event, Events};
 
+type Term = Terminal<TermionBackend<AlternateScreen<MouseTerminal<termion::raw::RawTerminal<std::io::Stdout>>>>>;
+
 #[derive(Debug, Clone)]
 struct Page{
     page_type: String,
@@ -226,39 +228,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     println!("{:?}", app.page.selected);
 
                     'input: loop {
-                        terminal.draw(|mut f| {
-                            let chunks = Layout::default()
-                                .direction(Direction::Vertical)
-                                .margin(2)
-                                .constraints([Constraint::Length(3), Constraint::Min(1)].as_ref())
-                                .split(f.size());
-                            Paragraph::new([Text::raw(&app.input)].iter())
-                                .style(Style::default().fg(Color::Yellow))
-                                .block(Block::default().borders(Borders::ALL).title("Input"))
-                                .render(&mut f, chunks[0]);
-
-                            match app.page.selected {
-                                Some(index) => {
-                                    let list = app.page.items[index].page
-                                        .items
-                                        .iter()
-                                        .enumerate()
-                                        .map(|(i, m)| Text::raw(format!("{}: {}", i, m.name)));
-                                    List::new(list)
-                                        .block(Block::default().borders(Borders::ALL).title("List"))
-                                        .render(&mut f, chunks[1]);
-                                }
-                                None => {}
-                            }
-                        })?;
-
-                        write!(
-                            terminal.backend_mut(),
-                            "{}",
-                            Goto(4 + app.input.width() as u16, 4)
-                        )?;
-                        // stdout is buffered, flush it to see the effect immediately when hitting backspace
-                        io::stdout().flush().ok();
+                        draw_add_menu(&mut terminal, &app)?;
 
                         // Handle input
                         match events.next()? {
@@ -300,5 +270,42 @@ fn run(mut app: App) -> Result<(), failure::Error> {
             }
         }
     }
+    Ok(())
+}
+
+fn draw_add_menu(terminal: &mut Term, app: &App) -> Result<(), failure::Error> {
+    terminal.draw(|mut f| {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .margin(2)
+            .constraints([Constraint::Length(3), Constraint::Min(1)].as_ref())
+            .split(f.size());
+        Paragraph::new([Text::raw(&app.input)].iter())
+            .style(Style::default().fg(Color::Yellow))
+            .block(Block::default().borders(Borders::ALL).title("Input"))
+            .render(&mut f, chunks[0]);
+
+        match app.page.selected {
+            Some(index) => {
+                let list = app.page.items[index].page
+                    .items
+                    .iter()
+                    .enumerate()
+                    .map(|(i, m)| Text::raw(format!("{}: {}", i, m.name)));
+                List::new(list)
+                    .block(Block::default().borders(Borders::ALL).title("List"))
+                    .render(&mut f, chunks[1]);
+            }
+            None => {}
+        }
+    })?;
+
+    write!(
+        terminal.backend_mut(),
+        "{}",
+        Goto(4 + app.input.width() as u16, 4)
+    )?;
+    // stdout is buffered, flush it to see the effect immediately when hitting backspace
+    io::stdout().flush().ok();
     Ok(())
 }

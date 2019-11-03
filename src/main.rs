@@ -10,7 +10,7 @@ use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::layout::{Alignment, Constraint, Corner, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
-use tui::widgets::{Block, Borders, List, SelectableList, Paragraph, Text, Widget};
+use tui::widgets::{Block, Borders, List as TuiList, SelectableList, Paragraph, Text, Widget};
 use tui::Terminal;
 use unicode_width::UnicodeWidthStr;
 
@@ -19,18 +19,18 @@ use crate::util::event::{Event, Events};
 type Term = Terminal<TermionBackend<AlternateScreen<MouseTerminal<termion::raw::RawTerminal<std::io::Stdout>>>>>;
 
 #[derive(Debug, Clone)]
-struct Page{
-    page_type: String,
+struct List{
+    list_type: String,
     name: String,
     items: Vec<Item>,
     selected: Option<usize>,
-    previous: Option<Box<Page>>,
+    previous: Option<Box<List>>,
 }
 
-impl Page{
-    pub fn new(page_type: String, name: String) -> Page {
-        Page{
-            page_type: page_type,
+impl List{
+    pub fn new(list_type: String, name: String) -> List {
+        List{
+            list_type: list_type,
             name: name,
             items: Vec::new(),
             selected: None,
@@ -43,7 +43,7 @@ impl Page{
 struct Item {
     id: String,
     name: String,
-    page: Page,
+    list: List,
 }
 
 impl Item{
@@ -51,13 +51,13 @@ impl Item{
         Item{
             id: id,
             name: name.clone(),
-            page: Page::new(item_type.clone(), name.clone()),
+            list: List::new(item_type.clone(), name.clone()),
         }
     }
 }
 
 struct App{
-    page: Page,
+    list: List,
     item_primary_style: Style,
     item_secondary_style: Style,
     input: String,
@@ -66,19 +66,19 @@ struct App{
 impl App {
     fn new() -> App {
         let items = vec![
-            Item{id: String::from("item1id"), name: String::from("item1name"), page: Page::new(String::from("item"), String::from("item1"))},
-            Item{id: String::from("item2id"), name: String::from("item2name"), page: Page::new(String::from("item"), String::from("item2"))},
-            Item{id: String::from("item3id"), name: String::from("item3name"), page: Page::new(String::from("item"), String::from("item3"))},
-            Item{id: String::from("item4id"), name: String::from("item4name"), page: Page::new(String::from("item"), String::from("item4"))},
-            Item{id: String::from("item5id"), name: String::from("item5name"), page: Page::new(String::from("item"), String::from("item5"))},
+            Item{id: String::from("item1id"), name: String::from("item1name"), list: List::new(String::from("item"), String::from("item1"))},
+            Item{id: String::from("item2id"), name: String::from("item2name"), list: List::new(String::from("item"), String::from("item2"))},
+            Item{id: String::from("item3id"), name: String::from("item3name"), list: List::new(String::from("item"), String::from("item3"))},
+            Item{id: String::from("item4id"), name: String::from("item4name"), list: List::new(String::from("item"), String::from("item4"))},
+            Item{id: String::from("item5id"), name: String::from("item5name"), list: List::new(String::from("item"), String::from("item5"))},
         ];
 
-        let mut page = Page::new(String::from("page type"), String::from("page name"));
-        page.items = items;
-        page.selected = Some(0);
+        let mut list = List::new(String::from("list type"), String::from("list name"));
+        list.items = items;
+        list.selected = Some(0);
 
         App{
-            page: page,
+            list: list,
             item_primary_style: Style::default().fg(Color::White),
             item_secondary_style: Style::default().fg(Color::Yellow),
             input: String::new(),
@@ -117,7 +117,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                 .border_style(Style::default().fg(Color::White))
                 .style(Style::default().bg(Color::Black));
 
-            let title = format!("{}: {}", app.page.page_type, app.page.name);
+            let title = format!("{}: {}", app.list.list_type, app.list.name);
             Paragraph::new([
                 Text::styled(
                     title,
@@ -146,16 +146,16 @@ fn run(mut app: App) -> Result<(), failure::Error> {
             let style = Style::default().fg(Color::Black).bg(Color::White);
             SelectableList::default()
                 .block(Block::default().borders(Borders::ALL).title("Menu"))
-                .items(&app.page.items.iter().map(|i| { i.name.clone() }).collect::<Vec<_>>())
-                .select(app.page.selected)
+                .items(&app.list.items.iter().map(|i| { i.name.clone() }).collect::<Vec<_>>())
+                .select(app.list.selected)
                 .style(style)
                 .highlight_style(style.fg(Color::LightGreen).modifier(Modifier::BOLD))
                 .highlight_symbol("=>")
                 .render(&mut f, primary_chunks[0]);
 
-            match app.page.selected {
+            match app.list.selected {
                 Some(index) => {
-                    let item = app.page.items[index].clone();
+                    let item = app.list.items[index].clone();
 
                     let fields = vec![
                         format!("Item ID: {}", item.id),
@@ -169,19 +169,19 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                         )
                     });
 
-                    List::new(item_info)
+                    TuiList::new(item_info)
                         .block(Block::default().borders(Borders::ALL).title("Selected"))
                         .start_corner(Corner::TopLeft)
                         .render(&mut f, info_chunks[0]);
 
-                    let item_list = app.page.items[index].page.items.iter().map(|i| {
+                    let item_list = app.list.items[index].list.items.iter().map(|i| {
                         Text::styled(
                             format!("{}", i.name),
                             app.item_secondary_style,
                         )
                     });
 
-                    List::new(item_list)
+                    TuiList::new(item_list)
                         .block(Block::default().borders(Borders::ALL).title("Items"))
                         .start_corner(Corner::TopLeft)
                         .render(&mut f, info_chunks[1]);
@@ -197,19 +197,19 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     break;
                 }
                 Key::Char('q') => {
-                    match app.page.previous {
-                        Some(prev_page) => {
-                            app.page = *prev_page;
+                    match app.list.previous {
+                        Some(prev_list) => {
+                            app.list = *prev_list;
                         }
                         None => { break; }
                     }
                 }
                 Key::Left => {
-                    app.page.selected = None;
+                    app.list.selected = None;
                 }
                 Key::Down => {
-                    app.page.selected = if let Some(selected) = app.page.selected {
-                        if selected >= app.page.items.len() - 1 {
+                    app.list.selected = if let Some(selected) = app.list.selected {
+                        if selected >= app.list.items.len() - 1 {
                             Some(0)
                         } else {
                             Some(selected + 1)
@@ -219,11 +219,11 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     };
                 }
                 Key::Up => {
-                    app.page.selected = if let Some(selected) = app.page.selected {
+                    app.list.selected = if let Some(selected) = app.list.selected {
                         if selected > 0 {
                             Some(selected - 1)
                         } else {
-                            Some(app.page.items.len() - 1)
+                            Some(app.list.items.len() - 1)
                         }
                     } else {
                         Some(0)
@@ -243,13 +243,13 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                                     break;
                                 }
                                 Key::Char('\n') => {
-                                    match app.page.selected {
+                                    match app.list.selected {
                                         Some(index) => {
                                             let input: String = app.input.drain(..).collect();
                                             let id = input.clone();
                                             let name = input.clone();
                                             let item = Item::new(String::from("Item"), id, name);
-                                            app.page.items[index].page.items.push(item);
+                                            app.list.items[index].list.items.push(item);
                                         }
                                         None => {}
                                     }
@@ -267,14 +267,14 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     };
                 }
                 Key::Char('e') => {
-                    match app.page.selected {
+                    match app.list.selected {
                         Some(index) => {
-                            let page = app.page.clone();
-                            let mut next_page = app.page.items[index].page.clone();
+                            let list = app.list.clone();
+                            let mut next_list = app.list.items[index].list.clone();
 
-                            if next_page.items.len() > 0 {
-                                next_page.previous = Some(Box::new(page));
-                                app.page = next_page;
+                            if next_list.items.len() > 0 {
+                                next_list.previous = Some(Box::new(list));
+                                app.list = next_list;
                             }
                         }
                         None => {}
@@ -301,14 +301,14 @@ fn draw_add_menu(terminal: &mut Term, app: &App) -> Result<(), failure::Error> {
             .block(Block::default().borders(Borders::ALL).title("Input"))
             .render(&mut f, chunks[0]);
 
-        match app.page.selected {
+        match app.list.selected {
             Some(index) => {
-                let list = app.page.items[index].page
+                let list = app.list.items[index].list
                     .items
                     .iter()
                     .enumerate()
                     .map(|(i, m)| Text::raw(format!("{}: {}", i, m.name)));
-                List::new(list)
+                TuiList::new(list)
                     .block(Block::default().borders(Borders::ALL).title("List"))
                     .render(&mut f, chunks[1]);
             }

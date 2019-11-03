@@ -197,7 +197,12 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     break;
                 }
                 Key::Char('q') => {
-                    break;
+                    match app.page.previous {
+                        Some(prev_page) => {
+                            app.page = *prev_page;
+                        }
+                        None => { break; }
+                    }
                 }
                 Key::Left => {
                     app.page.selected = None;
@@ -225,8 +230,6 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     }
                 }
                 Key::Char('a') => {
-                    println!("{:?}", app.page.selected);
-
                     'input: loop {
                         draw_add_menu(&mut terminal, &app)?;
 
@@ -263,11 +266,24 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                         }
                     };
                 }
+                Key::Char('e') => {
+                    match app.page.selected {
+                        Some(index) => {
+                            let page = app.page.clone();
+                            let mut next_page = app.page.items[index].page.clone();
+
+                            if next_page.items.len() > 0 {
+                                next_page.previous = Some(Box::new(page));
+                                app.page = next_page;
+                            }
+                        }
+                        None => {}
+                    }
+                }
+
                 _ => {}
             },
-            Event::Tick => {
-                // app.advance();
-            }
+            Event::Tick => {}
         }
     }
     Ok(())

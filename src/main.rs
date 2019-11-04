@@ -25,6 +25,7 @@ struct List{
     items: Vec<Item>,
     selected: Option<usize>,
     previous: Option<Box<List>>,
+    depth: usize,
 }
 
 impl List{
@@ -35,6 +36,7 @@ impl List{
             items: Vec::new(),
             selected: None,
             previous: None,
+            depth: 0,
         }
     }
 }
@@ -54,13 +56,6 @@ impl Item{
             list: List::new(item_type.clone(), name.clone()),
         }
     }
-}
-
-struct App{
-    list: List,
-}
-
-impl App {
 }
 
 fn main() -> Result<(), failure::Error> {
@@ -105,7 +100,7 @@ fn run(mut list: List) -> Result<(), failure::Error> {
                 .border_style(Style::default().fg(Color::White))
                 .style(Style::default().bg(Color::Black));
 
-            let title = format!("{}: {}", list.list_type, list.name);
+            let title = format!("{}: {}", list.depth, list.name);
             Paragraph::new([
                 Text::styled(
                     title,
@@ -266,6 +261,7 @@ fn run(mut list: List) -> Result<(), failure::Error> {
 
                             if next_list.items.len() > 0 {
                                 next_list.previous = Some(Box::new(current_list));
+                                next_list.depth = list.depth + 1;
                                 list = next_list;
                             }
                         }

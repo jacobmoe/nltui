@@ -18,13 +18,25 @@ use crate::util::event::{Event, Events};
 
 type Term = Terminal<TermionBackend<AlternateScreen<MouseTerminal<termion::raw::RawTerminal<std::io::Stdout>>>>>;
 
+struct Options{
+    max_depth: Option<usize>,
+    restrict_delete: Vec<usize>,
+}
+
+impl Options{
+    pub fn new() -> Options {
+        Options{
+            max_depth: None,
+            restrict_delete: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct List{
     name: String,
     items: Vec<Item>,
     selected: Option<usize>,
-    previous: Option<Box<List>>,
-    depth: usize,
 }
 
 impl List{
@@ -33,8 +45,6 @@ impl List{
             name: name,
             items: Vec::new(),
             selected: None,
-            previous: None,
-            depth: 0,
         }
     }
 }
@@ -56,6 +66,20 @@ impl Item{
     }
 }
 
+struct App{
+    lists: Vec<List>,
+    current: usize,
+}
+
+impl App{
+    pub fn new(base_list: List) -> App {
+        App{
+            lists: vec!(base_list),
+            current: 0,
+        }
+    }
+}
+
 fn main() -> Result<(), failure::Error> {
     let items = vec![
         Item{id: String::from("item1id"), name: String::from("item1name"), list: List::new(String::from("item1"))},
@@ -65,14 +89,19 @@ fn main() -> Result<(), failure::Error> {
         Item{id: String::from("item5id"), name: String::from("item5name"), list: List::new(String::from("item5"))},
     ];
 
+    let mut options = Options::new();
+    options.restrict_delete = vec!(0);
+
     let mut list = List::new(String::from("list name"));
     list.items = items;
     list.selected = Some(0);
 
-    run(list)
+    let app = App::new(list);
+
+    run(app, options)
 }
 
-fn run(mut list: List) -> Result<(), failure::Error> {
+fn run(mut app: App, options: Options) -> Result<(), failure::Error> {
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
@@ -82,6 +111,8 @@ fn run(mut list: List) -> Result<(), failure::Error> {
     terminal.hide_cursor()?;
 
     let events = Events::new();
+
+    let mut list = app.lists[app.current];
 
     'main: loop {
         terminal.draw(|mut f| {
@@ -98,7 +129,7 @@ fn run(mut list: List) -> Result<(), failure::Error> {
                 .border_style(Style::default().fg(Color::White))
                 .style(Style::default().bg(Color::Black));
 
-            let title = format!("{}: {}", list.depth, list.name);
+            let title = format!("{}: {}", app.current, list.name);
             Paragraph::new([
                 Text::styled(
                     title,
@@ -264,6 +295,47 @@ fn run(mut list: List) -> Result<(), failure::Error> {
                             }
                         }
                         None => {}
+                    }
+                }
+                Key::Char('d') => {
+                    if !options.restrict_delete.contains(&list.depth) {
+                        match list.selected {
+                            Some(index) => {
+                                let mut new_list = list.clone();
+                                new_list.items.remove(index);
+
+                                if new_list.items.len() > 0 {
+                                    new_list.selected = Some(0);
+                                } else {
+                                    new_list.selected = None;
+                                }
+
+                                match new_list.previous {
+                                    Some(previous_list_box) => {
+                                        let previous_list = *previous_list_box;
+                                        match previous_list.selected {
+                                            Some(index) => {
+                                                let mut previous_list_item = previous_list.items[index].clone();
+                                                let mut new_previous_list = previous_list.clone();
+                                                previous_list_item.list.items = new_list.items.clone();
+                                                new_previous_list.items[index] = previous_list_item;
+
+                                                list.previous = Some(Box::new(new_previous_list));
+                                            }
+                                            None => {}
+                                        }
+
+                                        // previous_list.items = new_list.items.clone();
+                                        // list.previous = Some(Box::new(previous_list));
+                                    }
+                                    None => {}
+                                }
+
+                                list.items = new_list.items.clone();
+                                list.selected = new_list.selected;
+                            }
+                            None => {}
+                        }
                     }
                 }
 

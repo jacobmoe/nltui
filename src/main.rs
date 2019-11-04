@@ -20,7 +20,6 @@ type Term = Terminal<TermionBackend<AlternateScreen<MouseTerminal<termion::raw::
 
 #[derive(Debug, Clone)]
 struct List{
-    list_type: String,
     name: String,
     items: Vec<Item>,
     selected: Option<usize>,
@@ -29,9 +28,8 @@ struct List{
 }
 
 impl List{
-    pub fn new(list_type: String, name: String) -> List {
+    pub fn new(name: String) -> List {
         List{
-            list_type: list_type,
             name: name,
             items: Vec::new(),
             selected: None,
@@ -49,25 +47,25 @@ struct Item {
 }
 
 impl Item{
-    pub fn new(item_type: String, id: String, name: String) -> Item {
+    pub fn new(id: String, name: String) -> Item {
         Item{
             id: id,
             name: name.clone(),
-            list: List::new(item_type.clone(), name.clone()),
+            list: List::new(name.clone()),
         }
     }
 }
 
 fn main() -> Result<(), failure::Error> {
     let items = vec![
-        Item{id: String::from("item1id"), name: String::from("item1name"), list: List::new(String::from("item"), String::from("item1"))},
-        Item{id: String::from("item2id"), name: String::from("item2name"), list: List::new(String::from("item"), String::from("item2"))},
-        Item{id: String::from("item3id"), name: String::from("item3name"), list: List::new(String::from("item"), String::from("item3"))},
-        Item{id: String::from("item4id"), name: String::from("item4name"), list: List::new(String::from("item"), String::from("item4"))},
-        Item{id: String::from("item5id"), name: String::from("item5name"), list: List::new(String::from("item"), String::from("item5"))},
+        Item{id: String::from("item1id"), name: String::from("item1name"), list: List::new(String::from("item1"))},
+        Item{id: String::from("item2id"), name: String::from("item2name"), list: List::new(String::from("item2"))},
+        Item{id: String::from("item3id"), name: String::from("item3name"), list: List::new(String::from("item3"))},
+        Item{id: String::from("item4id"), name: String::from("item4name"), list: List::new(String::from("item4"))},
+        Item{id: String::from("item5id"), name: String::from("item5name"), list: List::new(String::from("item5"))},
     ];
 
-    let mut list = List::new(String::from("list type"), String::from("list name"));
+    let mut list = List::new(String::from("list name"));
     list.items = items;
     list.selected = Some(0);
 
@@ -234,7 +232,7 @@ fn run(mut list: List) -> Result<(), failure::Error> {
                                                 let input: String = user_input.drain(..).collect();
                                                 let id = input.clone();
                                                 let name = input.clone();
-                                                let item = Item::new(String::from("Item"), id, name);
+                                                let item = Item::new(id, name);
                                                 list.items[index].list.items.push(item);
                                             }
                                             None => {}

@@ -19,14 +19,12 @@ use crate::util::event::{Event, Events};
 type Term = Terminal<TermionBackend<AlternateScreen<MouseTerminal<termion::raw::RawTerminal<std::io::Stdout>>>>>;
 
 struct Options{
-    max_depth: Option<usize>,
     restrict_delete: Vec<usize>,
 }
 
 impl Options{
     pub fn new() -> Options {
         Options{
-            max_depth: None,
             restrict_delete: Vec::new(),
         }
     }
@@ -37,6 +35,7 @@ struct List{
     name: String,
     items: Vec<Item>,
     selected: Option<usize>,
+    previous: Option<usize>,
 }
 
 impl List{
@@ -45,6 +44,7 @@ impl List{
             name: name,
             items: Vec::new(),
             selected: None,
+            previous: None,
         }
     }
 }
@@ -53,7 +53,7 @@ impl List{
 struct Item {
     id: String,
     name: String,
-    list: List,
+    list_index: Option<usize>,
 }
 
 impl Item{
@@ -61,7 +61,7 @@ impl Item{
         Item{
             id: id,
             name: name.clone(),
-            list: List::new(name.clone()),
+            list_index: None,
         }
     }
 }
@@ -69,39 +69,127 @@ impl Item{
 struct App{
     lists: Vec<List>,
     current: usize,
+    options: Options,
 }
 
 impl App{
-    pub fn new(base_list: List) -> App {
+    pub fn new(root_list: List) -> App {
         App{
-            lists: vec!(base_list),
+            lists: vec!(root_list),
             current: 0,
+            options: Options::new(),
+        }
+    }
+
+    pub fn get_current_list(&self) -> List {
+        self.lists[self.current].clone()
+    }
+
+    pub fn get_selected_item(&self) -> Option<Item> {
+        match self.lists[self.current].selected {
+            Some(selected) => {
+                return Some(self.lists[self.current].items[selected].clone());
+            }
+            None => { return None; }
+        }
+    }
+
+    pub fn get_list_for_selected(&self) -> Option<List> {
+        match self.lists[self.current].selected {
+            Some(selected) => {
+                match self.lists[self.current].items[selected].list_index {
+                    Some(selected_item_list_index) => {
+                        return Some(self.lists[selected_item_list_index].clone());
+                    }
+                    None => { return None; }
+
+                }
+            }
+            None => { return None; }
+        }
+    }
+
+    pub fn add_list(&mut self, name: String) -> usize {
+        let mut list = List::new(name);
+        list.previous = Some(self.current);
+        self.lists.push(list);
+
+        return self.lists.len() - 1;
+    }
+
+    pub fn add_list_item(&mut self, name: String, id: String) {
+        let item = Item::new(id, name.clone());
+
+        match self.lists[self.current].selected {
+            Some(selected_item_index) => {
+                match self.lists[self.current].items[selected_item_index].list_index {
+                    Some(_) => {}
+                    None => {
+                        let index = self.add_list(name.clone());
+                        self.lists[self.current].items[selected_item_index].list_index = Some(index);
+                    }
+                }
+
+                match self.lists[self.current].items[selected_item_index].list_index {
+                    Some(list_index) => {
+                        self.lists[list_index].items.push(item);
+                    }
+                    None => {}
+                }
+            }
+            None => {}
+        }
+    }
+
+    pub fn set_item_selection(&mut self, selected: Option<usize>) {
+        self.lists[self.current].selected = selected;
+    }
+
+    pub fn close_current_list(&mut self) {
+        match self.lists[self.current].previous {
+            Some(previous_index) => {
+                self.current = previous_index;
+            }
+            None => {}
+        }
+    }
+
+    pub fn open_selected_item_list(&mut self) {
+        match self.lists[self.current].selected {
+            Some(selected_item_index) => {
+                match self.lists[self.current].items[selected_item_index].list_index {
+                    Some(index) => {
+                        self.current = index;
+                    }
+                    None => {}
+                }
+            }
+            None => {}
         }
     }
 }
 
 fn main() -> Result<(), failure::Error> {
     let items = vec![
-        Item{id: String::from("item1id"), name: String::from("item1name"), list: List::new(String::from("item1"))},
-        Item{id: String::from("item2id"), name: String::from("item2name"), list: List::new(String::from("item2"))},
-        Item{id: String::from("item3id"), name: String::from("item3name"), list: List::new(String::from("item3"))},
-        Item{id: String::from("item4id"), name: String::from("item4name"), list: List::new(String::from("item4"))},
-        Item{id: String::from("item5id"), name: String::from("item5name"), list: List::new(String::from("item5"))},
+        Item::new(String::from("item1id"), String::from("item1name")),
+        Item::new(String::from("item2id"), String::from("item2name")),
+        Item::new(String::from("item3id"), String::from("item3name")),
+        Item::new(String::from("item4id"), String::from("item4name")),
+        Item::new(String::from("item5id"), String::from("item5name")),
     ];
 
-    let mut options = Options::new();
-    options.restrict_delete = vec!(0);
 
     let mut list = List::new(String::from("list name"));
     list.items = items;
     list.selected = Some(0);
 
-    let app = App::new(list);
+    let mut app = App::new(list);
+    app.options.restrict_delete = vec!(0);
 
-    run(app, options)
+    run(app)
 }
 
-fn run(mut app: App, options: Options) -> Result<(), failure::Error> {
+fn run(mut app: App) -> Result<(), failure::Error> {
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
@@ -111,8 +199,6 @@ fn run(mut app: App, options: Options) -> Result<(), failure::Error> {
     terminal.hide_cursor()?;
 
     let events = Events::new();
-
-    let mut list = app.lists[app.current];
 
     'main: loop {
         terminal.draw(|mut f| {
@@ -129,6 +215,7 @@ fn run(mut app: App, options: Options) -> Result<(), failure::Error> {
                 .border_style(Style::default().fg(Color::White))
                 .style(Style::default().bg(Color::Black));
 
+            let list = app.get_current_list();
             let title = format!("{}: {}", app.current, list.name);
             Paragraph::new([
                 Text::styled(
@@ -165,10 +252,8 @@ fn run(mut app: App, options: Options) -> Result<(), failure::Error> {
                 .highlight_symbol("=>")
                 .render(&mut f, primary_chunks[0]);
 
-            match list.selected {
-                Some(index) => {
-                    let item = list.items[index].clone();
-
+            match app.get_selected_item() {
+                Some(item) => {
                     let fields = vec![
                         format!("Item ID: {}", item.id),
                         format!("Item Name: {}", item.name),
@@ -186,22 +271,29 @@ fn run(mut app: App, options: Options) -> Result<(), failure::Error> {
                         .start_corner(Corner::TopLeft)
                         .render(&mut f, info_chunks[0]);
 
-                    let item_list = list.items[index].list.items.iter().map(|i| {
-                        Text::styled(
-                            format!("{}", i.name),
-                            Style::default().fg(Color::Yellow),
-                        )
-                    });
+                    match app.get_list_for_selected() {
+                        Some(nested_list) => {
+                            let item_list = nested_list.items.iter().map(|i| {
+                                Text::styled(
+                                    format!("{}", i.name),
+                                    Style::default().fg(Color::Yellow),
+                                )
+                            });
 
-                    TuiList::new(item_list)
-                        .block(Block::default().borders(Borders::ALL).title("Items"))
-                        .start_corner(Corner::TopLeft)
-                        .render(&mut f, info_chunks[1]);
+                            TuiList::new(item_list)
+                                .block(Block::default().borders(Borders::ALL).title("Items"))
+                                .start_corner(Corner::TopLeft)
+                                .render(&mut f, info_chunks[1]);
+                        }
+                        None => {}
+                    }
                 }
                 None => {}
             }
 
         })?;
+
+        let mut list = app.get_current_list();
 
         match events.next()? {
             Event::Input(input) => match input {
@@ -209,18 +301,13 @@ fn run(mut app: App, options: Options) -> Result<(), failure::Error> {
                     break;
                 }
                 Key::Char('q') => {
-                    match list.previous {
-                        Some(prev_list) => {
-                            list = *prev_list;
-                        }
-                        None => { break; }
-                    }
+                    app.close_current_list();
                 }
                 Key::Left => {
                     list.selected = None;
                 }
                 Key::Down => {
-                    list.selected = if let Some(selected) = list.selected {
+                    let s = if let Some(selected) = list.selected {
                         if selected >= list.items.len() - 1 {
                             Some(0)
                         } else {
@@ -229,9 +316,11 @@ fn run(mut app: App, options: Options) -> Result<(), failure::Error> {
                     } else {
                         Some(0)
                     };
+
+                    app.set_item_selection(s);
                 }
                 Key::Up => {
-                    list.selected = if let Some(selected) = list.selected {
+                    let s = if let Some(selected) = list.selected {
                         if selected > 0 {
                             Some(selected - 1)
                         } else {
@@ -239,13 +328,15 @@ fn run(mut app: App, options: Options) -> Result<(), failure::Error> {
                         }
                     } else {
                         Some(0)
-                    }
+                    };
+
+                    app.set_item_selection(s);
                 }
                 Key::Char('a') => {
                     let mut user_input: String = String::new();
 
                     'input: loop {
-                        draw_add_menu(&mut terminal, &list, user_input.clone())?;
+                        draw_add_menu(&mut terminal, &app, user_input.clone())?;
 
                         // Handle input
                         match events.next()? {
@@ -258,16 +349,11 @@ fn run(mut app: App, options: Options) -> Result<(), failure::Error> {
                                 }
                                 Key::Char('\n') => {
                                     if user_input != "" {
-                                        match list.selected {
-                                            Some(index) => {
-                                                let input: String = user_input.drain(..).collect();
-                                                let id = input.clone();
-                                                let name = input.clone();
-                                                let item = Item::new(id, name);
-                                                list.items[index].list.items.push(item);
-                                            }
-                                            None => {}
-                                        }
+                                        let input: String = user_input.drain(..).collect();
+                                        let id = input.clone();
+                                        let name = input.clone();
+
+                                        app.add_list_item(id, name);
                                     }
                                 }
                                 Key::Char(c) => {
@@ -283,60 +369,9 @@ fn run(mut app: App, options: Options) -> Result<(), failure::Error> {
                     };
                 }
                 Key::Char('e') => {
-                    match list.selected {
-                        Some(index) => {
-                            let current_list = list.clone();
-                            let mut next_list = list.items[index].list.clone();
-
-                            if next_list.items.len() > 0 {
-                                next_list.previous = Some(Box::new(current_list));
-                                next_list.depth = list.depth + 1;
-                                list = next_list;
-                            }
-                        }
-                        None => {}
-                    }
+                    app.open_selected_item_list();
                 }
                 Key::Char('d') => {
-                    if !options.restrict_delete.contains(&list.depth) {
-                        match list.selected {
-                            Some(index) => {
-                                let mut new_list = list.clone();
-                                new_list.items.remove(index);
-
-                                if new_list.items.len() > 0 {
-                                    new_list.selected = Some(0);
-                                } else {
-                                    new_list.selected = None;
-                                }
-
-                                match new_list.previous {
-                                    Some(previous_list_box) => {
-                                        let previous_list = *previous_list_box;
-                                        match previous_list.selected {
-                                            Some(index) => {
-                                                let mut previous_list_item = previous_list.items[index].clone();
-                                                let mut new_previous_list = previous_list.clone();
-                                                previous_list_item.list.items = new_list.items.clone();
-                                                new_previous_list.items[index] = previous_list_item;
-
-                                                list.previous = Some(Box::new(new_previous_list));
-                                            }
-                                            None => {}
-                                        }
-
-                                        // previous_list.items = new_list.items.clone();
-                                        // list.previous = Some(Box::new(previous_list));
-                                    }
-                                    None => {}
-                                }
-
-                                list.items = new_list.items.clone();
-                                list.selected = new_list.selected;
-                            }
-                            None => {}
-                        }
-                    }
                 }
 
                 _ => {}
@@ -347,7 +382,7 @@ fn run(mut app: App, options: Options) -> Result<(), failure::Error> {
     Ok(())
 }
 
-fn draw_add_menu(terminal: &mut Term, list: &List, user_input: String) -> Result<(), failure::Error> {
+fn draw_add_menu(terminal: &mut Term, app: &App, user_input: String) -> Result<(), failure::Error> {
     terminal.draw(|mut f| {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -359,19 +394,34 @@ fn draw_add_menu(terminal: &mut Term, list: &List, user_input: String) -> Result
             .block(Block::default().borders(Borders::ALL).title("Input"))
             .render(&mut f, chunks[0]);
 
-        match list.selected {
-            Some(index) => {
-                let list = list.items[index].list
+
+        match app.get_list_for_selected() {
+            Some(list) => {
+                let text_list = list
                     .items
                     .iter()
                     .enumerate()
                     .map(|(i, m)| Text::raw(format!("{}: {}", i, m.name)));
-                TuiList::new(list)
+                TuiList::new(text_list)
                     .block(Block::default().borders(Borders::ALL).title("List"))
                     .render(&mut f, chunks[1]);
             }
             None => {}
         }
+
+        // match list.selected {
+        //     Some(index) => {
+        //         let list = list.items[index].list
+        //             .items
+        //             .iter()
+        //             .enumerate()
+        //             .map(|(i, m)| Text::raw(format!("{}: {}", i, m.name)));
+        //         TuiList::new(list)
+        //             .block(Block::default().borders(Borders::ALL).title("List"))
+        //             .render(&mut f, chunks[1]);
+        //     }
+        //     None => {}
+        // }
     })?;
 
     write!(

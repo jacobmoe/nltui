@@ -70,6 +70,7 @@ struct App{
     lists: Vec<List>,
     current: usize,
     options: Options,
+    depth: usize,
 }
 
 impl App{
@@ -78,6 +79,7 @@ impl App{
             lists: vec!(root_list),
             current: 0,
             options: Options::new(),
+            depth: 0,
         }
     }
 
@@ -149,6 +151,7 @@ impl App{
         match self.lists[self.current].previous {
             Some(previous_index) => {
                 self.current = previous_index;
+                self.depth = self.depth - 1;
             }
             None => {}
         }
@@ -160,6 +163,11 @@ impl App{
                 match self.lists[self.current].items[selected_item_index].list_index {
                     Some(index) => {
                         self.current = index;
+                        self.depth = self.depth + 1;
+
+                        if self.lists[index].items.len() > 0 {
+                            self.lists[index].selected = Some(0);
+                        }
                     }
                     None => {}
                 }
@@ -167,6 +175,9 @@ impl App{
             None => {}
         }
     }
+
+    // pub fn remove_selected_item() {
+    // }
 }
 
 fn main() -> Result<(), failure::Error> {
@@ -217,7 +228,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
 
             let list = app.get_current_list();
 
-            let title = format!("{}: {}", app.current, list.name);
+            let title = format!("{}: {}", app.depth, list.name);
             Paragraph::new([
                 Text::styled(
                     title,

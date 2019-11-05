@@ -152,6 +152,22 @@ impl App{
             Some(previous_index) => {
                 self.current = previous_index;
                 self.depth = self.depth - 1;
+
+                // if list that was just closed doesn't have any items,
+                // remove list_index from item that owns the list
+                match self.lists[self.current].selected {
+                    Some(selected) => {
+                        match self.lists[self.current].items[selected].list_index {
+                            Some(index) => {
+                                if self.lists[index].items.len() == 0 {
+                                    self.lists[self.current].items[selected].list_index = None;
+                                }
+                            }
+                            None => {}
+                        }
+                    }
+                    None => {}
+                }
             }
             None => {}
         }
@@ -176,8 +192,24 @@ impl App{
         }
     }
 
-    // pub fn remove_selected_item() {
-    // }
+    pub fn delete_selected_item(&mut self) {
+        if !self.options.restrict_delete.contains(&self.depth) {
+            match self.lists[self.current].selected {
+                Some(index) => {
+                    self.lists[self.current].items[index].list_index = None;
+                    self.lists[self.current].items.remove(index);
+
+                    if self.lists[self.current].items.len() > 0 {
+                        self.lists[self.current].selected = Some(0);
+                    } else {
+                        self.lists[self.current].selected = None;
+                        self.close_current_list();
+                    }
+                }
+                None => {}
+            }
+        }
+    }
 }
 
 fn main() -> Result<(), failure::Error> {
@@ -188,7 +220,6 @@ fn main() -> Result<(), failure::Error> {
         Item::new(String::from("item4id"), String::from("item4name")),
         Item::new(String::from("item5id"), String::from("item5name")),
     ];
-
 
     let mut list = List::new(String::from("list name"));
     list.items = items;
@@ -302,7 +333,6 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                 }
                 None => {}
             }
-
         })?;
 
         let mut list = app.get_current_list();
@@ -383,8 +413,8 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     app.open_selected_item_list();
                 }
                 Key::Char('d') => {
+                    app.delete_selected_item();
                 }
-
                 _ => {}
             },
         }
@@ -418,20 +448,6 @@ fn draw_add_menu(terminal: &mut Term, app: &App, user_input: String) -> Result<(
             }
             None => {}
         }
-
-        // match list.selected {
-        //     Some(index) => {
-        //         let list = list.items[index].list
-        //             .items
-        //             .iter()
-        //             .enumerate()
-        //             .map(|(i, m)| Text::raw(format!("{}: {}", i, m.name)));
-        //         TuiList::new(list)
-        //             .block(Block::default().borders(Borders::ALL).title("List"))
-        //             .render(&mut f, chunks[1]);
-        //     }
-        //     None => {}
-        // }
     })?;
 
     write!(

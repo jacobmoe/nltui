@@ -216,6 +216,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                 .style(Style::default().bg(Color::Black));
 
             let list = app.get_current_list();
+
             let title = format!("{}: {}", app.current, list.name);
             Paragraph::new([
                 Text::styled(
@@ -364,7 +365,6 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                                 }
                                 _ => {}
                             },
-                            _ => {}
                         }
                     };
                 }
@@ -376,7 +376,6 @@ fn run(mut app: App) -> Result<(), failure::Error> {
 
                 _ => {}
             },
-            Event::Tick => {}
         }
     }
     Ok(())

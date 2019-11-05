@@ -180,6 +180,17 @@ impl App{
         self.lists[self.current].selected = selected;
     }
 
+    pub fn can_go_back(&mut self) -> bool {
+        match self.lists[self.current].previous {
+            Some(_) => {
+                true
+            }
+            None => {
+                false
+            }
+        }
+    }
+
     pub fn close_current_list(&mut self) {
         match self.lists[self.current].previous {
             Some(previous_index) => {
@@ -249,11 +260,11 @@ impl App{
 
 fn main() -> Result<(), failure::Error> {
     let items = vec![
-        Item::new(String::from("item1id"), String::from("item1name")),
-        Item::new(String::from("item2id"), String::from("item2name")),
-        Item::new(String::from("item3id"), String::from("item3name")),
-        Item::new(String::from("item4id"), String::from("item4name")),
-        Item::new(String::from("item5id"), String::from("item5name")),
+        Item::new(String::from("item 1 id"), String::from("item 1 name")),
+        Item::new(String::from("item 2 id"), String::from("item 2 name")),
+        Item::new(String::from("item 3 id"), String::from("item 3 name")),
+        Item::new(String::from("item 4 id"), String::from("item 4 name")),
+        Item::new(String::from("item 5 id"), String::from("item 5 name")),
     ];
 
     let mut list = List::new(String::from("list name"));
@@ -355,8 +366,11 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                 Some(item) => {
                     let mut usage = vec![
                         "ctrl-c: exit",
-                        "b: back to previous page",
                     ];
+
+                    if app.can_go_back() {
+                        usage.push("b: back to previous page");
+                    }
 
                     if !page_options.disable_add {
                         usage.push("a: add items to selection");
@@ -378,7 +392,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     });
 
                     TuiList::new(usage_info)
-                        .block(Block::default().borders(Borders::ALL).title("Commands"))
+                        .block(Block::default().borders(Borders::ALL).title("Navigation"))
                         .start_corner(Corner::TopLeft)
                         .render(&mut f, info_chunks[0]);
 
@@ -548,7 +562,7 @@ fn draw_add_menu(terminal: &mut Term, app: &App, user_input: String) -> Result<(
             .render(&mut f, wrapper_chunks[0]);
 
         let usage = vec![
-            "ctrl-s: save and return to previous window",
+            "ctrl-s: save and return to previous",
         ];
 
         let usage_info = usage.iter().map(|i| {
@@ -559,7 +573,7 @@ fn draw_add_menu(terminal: &mut Term, app: &App, user_input: String) -> Result<(
         });
 
         TuiList::new(usage_info)
-            .block(Block::default().borders(Borders::ALL).title("Commands"))
+            .block(Block::default().borders(Borders::ALL).title("Navigation"))
             .start_corner(Corner::TopLeft)
             .render(&mut f, wrapper_chunks[1]);
 

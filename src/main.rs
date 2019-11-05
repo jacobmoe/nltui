@@ -304,7 +304,8 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                 .direction(Direction::Vertical)
                 .constraints([
                     Constraint::Percentage(20),
-                    Constraint::Percentage(80),
+                    Constraint::Percentage(20),
+                    Constraint::Percentage(60),
                 ].as_ref())
                 .split(primary_chunks[1]);
 
@@ -320,9 +321,31 @@ fn run(mut app: App) -> Result<(), failure::Error> {
 
             match app.get_selected_item() {
                 Some(item) => {
+                    let mut usage = vec![
+                        "ctrl-c: exit",
+                        "a: add items to selection",
+                        "e: edit selection",
+                    ];
+
+                    if !app.options.restrict_delete.contains(&app.depth) {
+                        usage.push("d: delete selection");
+                    }
+
+                    let usage_info = usage.iter().map(|i| {
+                        Text::styled(
+                            format!("{}", i),
+                            Style::default().fg(Color::Green),
+                        )
+                    });
+
+                    TuiList::new(usage_info)
+                        .block(Block::default().borders(Borders::ALL).title("Commands"))
+                        .start_corner(Corner::TopLeft)
+                        .render(&mut f, info_chunks[0]);
+
                     let fields = vec![
-                        format!("Item ID: {}", item.id),
-                        format!("Item Name: {}", item.name),
+                        format!("ID: {}", item.id),
+                        format!("Name: {}", item.name),
                     ];
 
                     let item_info = fields.iter().map(|i| {
@@ -335,7 +358,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     TuiList::new(item_info)
                         .block(Block::default().borders(Borders::ALL).title("Selected"))
                         .start_corner(Corner::TopLeft)
-                        .render(&mut f, info_chunks[0]);
+                        .render(&mut f, info_chunks[1]);
 
                     match app.get_list_for_selected() {
                         Some(nested_list) => {
@@ -349,7 +372,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                             TuiList::new(item_list)
                                 .block(Block::default().borders(Borders::ALL).title("Items"))
                                 .start_corner(Corner::TopLeft)
-                                .render(&mut f, info_chunks[1]);
+                                .render(&mut f, info_chunks[2]);
                         }
                         None => {}
                     }
@@ -447,16 +470,40 @@ fn run(mut app: App) -> Result<(), failure::Error> {
 
 fn draw_add_menu(terminal: &mut Term, app: &App, user_input: String) -> Result<(), failure::Error> {
     terminal.draw(|mut f| {
-        let chunks = Layout::default()
+        let wrapper_chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(2)
-            .constraints([Constraint::Length(3), Constraint::Min(1)].as_ref())
+            .constraints([
+                Constraint::Percentage(20),
+                Constraint::Percentage(80),
+            ].as_ref())
             .split(f.size());
+
+        let usage = vec![
+            "ctrl-s: save and return to previous window",
+        ];
+
+        let usage_info = usage.iter().map(|i| {
+            Text::styled(
+                format!("{}", i),
+                Style::default().fg(Color::Green),
+            )
+        });
+
+        TuiList::new(usage_info)
+            .block(Block::default().borders(Borders::ALL).title("Commands"))
+            .start_corner(Corner::TopLeft)
+            .render(&mut f, wrapper_chunks[0]);
+
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(3), Constraint::Min(1)].as_ref())
+            .split(wrapper_chunks[1]);
+
         Paragraph::new([Text::raw(&user_input)].iter())
             .style(Style::default().fg(Color::Yellow))
             .block(Block::default().borders(Borders::ALL).title("Input"))
             .render(&mut f, chunks[0]);
-
 
         match app.get_list_for_selected() {
             Some(list) => {

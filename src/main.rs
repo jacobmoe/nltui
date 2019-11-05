@@ -20,12 +20,14 @@ type Term = Terminal<TermionBackend<AlternateScreen<MouseTerminal<termion::raw::
 
 struct Options{
     restrict_delete: Vec<usize>,
+    depth_names: Vec<String>,
 }
 
 impl Options{
     pub fn new() -> Options {
         Options{
             restrict_delete: Vec::new(),
+            depth_names: Vec::new(),
         }
     }
 }
@@ -227,11 +229,26 @@ fn main() -> Result<(), failure::Error> {
 
     let mut app = App::new(list);
     app.options.restrict_delete = vec!(0);
+    app.options.depth_names = vec!(
+        String::from("Example1"),
+        String::from("Example2"),
+        String::from("Example3"),
+    );
 
     run(app)
 }
 
 fn run(mut app: App) -> Result<(), failure::Error> {
+    if app.lists.len() == 0 {
+        println!("No root list found");
+        return Ok(());
+    }
+
+    if app.lists[0].items.len() == 0 {
+        println!("No items in root list");
+        return Ok(());
+    }
+
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
@@ -259,7 +276,13 @@ fn run(mut app: App) -> Result<(), failure::Error> {
 
             let list = app.get_current_list();
 
-            let title = format!("{}: {}", app.depth, list.name);
+            let list_type_name = if app.options.depth_names.len()-1 >= app.depth {
+                app.options.depth_names[app.depth].clone()
+            } else {
+                format!("Level {}", app.depth)
+            };
+            let title = format!("{}: {}", list_type_name, list.name);
+
             Paragraph::new([
                 Text::styled(
                     title,

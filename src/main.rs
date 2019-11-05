@@ -205,21 +205,23 @@ impl App{
     }
 
     pub fn open_selected_item_list(&mut self) {
-        match self.lists[self.current].selected {
-            Some(selected_item_index) => {
-                match self.lists[self.current].items[selected_item_index].list_index {
-                    Some(index) => {
-                        self.current = index;
-                        self.depth = self.depth + 1;
+        if !self.get_current_page_options().disable_edit {
+            match self.lists[self.current].selected {
+                Some(selected_item_index) => {
+                    match self.lists[self.current].items[selected_item_index].list_index {
+                        Some(index) => {
+                            self.current = index;
+                            self.depth = self.depth + 1;
 
-                        if self.lists[index].items.len() > 0 {
-                            self.lists[index].selected = Some(0);
+                            if self.lists[index].items.len() > 0 {
+                                self.lists[index].selected = Some(0);
+                            }
                         }
+                        None => {}
                     }
-                    None => {}
                 }
+                None => {}
             }
-            None => {}
         }
     }
 
@@ -360,7 +362,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     }
 
                     if !page_options.disable_edit {
-                        usage.push("a: edit selection");
+                        usage.push("e: edit selection");
                     }
 
                     if !page_options.disable_delete {
@@ -457,39 +459,41 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     app.set_item_selection(s);
                 }
                 Key::Char('a') => {
-                    let mut user_input: String = String::new();
+                    if !page_options.disable_add {
+                        let mut user_input: String = String::new();
 
-                    'input: loop {
-                        draw_add_menu(&mut terminal, &app, user_input.clone())?;
+                        'input: loop {
+                            draw_add_menu(&mut terminal, &app, user_input.clone())?;
 
-                        // Handle input
-                        match events.next()? {
-                            Event::Input(input) => match input {
-                                Key::Ctrl('c') => {
-                                    break 'main;
-                                }
-                                Key::Ctrl('s') => {
-                                    break;
-                                }
-                                Key::Char('\n') => {
-                                    if user_input != "" {
-                                        let input: String = user_input.drain(..).collect();
-                                        let id = input.clone();
-                                        let name = input.clone();
-
-                                        app.add_list_item(id, name);
+                            // Handle input
+                            match events.next()? {
+                                Event::Input(input) => match input {
+                                    Key::Ctrl('c') => {
+                                        break 'main;
                                     }
-                                }
-                                Key::Char(c) => {
-                                    user_input.push(c);
-                                }
-                                Key::Backspace => {
-                                    user_input.pop();
-                                }
-                                _ => {}
-                            },
-                        }
-                    };
+                                    Key::Ctrl('s') => {
+                                        break;
+                                    }
+                                    Key::Char('\n') => {
+                                        if user_input != "" {
+                                            let input: String = user_input.drain(..).collect();
+                                            let id = input.clone();
+                                            let name = input.clone();
+
+                                            app.add_list_item(id, name);
+                                        }
+                                    }
+                                    Key::Char(c) => {
+                                        user_input.push(c);
+                                    }
+                                    Key::Backspace => {
+                                        user_input.pop();
+                                    }
+                                    _ => {}
+                                },
+                            }
+                        };
+                    }
                 }
                 Key::Char('e') => {
                     app.open_selected_item_list();

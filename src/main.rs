@@ -18,16 +18,37 @@ use crate::util::event::{Event, Events};
 
 type Term = Terminal<TermionBackend<AlternateScreen<MouseTerminal<termion::raw::RawTerminal<std::io::Stdout>>>>>;
 
+#[derive(Debug, Clone)]
+struct PageOptions{
+    title: String,
+    menu_box_title: String,
+    selected_box_title: String,
+    disable_delete: bool,
+    disable_add: bool,
+    disable_edit: bool,
+}
+
+impl PageOptions{
+    pub fn new(title: String) -> PageOptions {
+        PageOptions{
+            title: title,
+            menu_box_title: String::from("Menu"),
+            selected_box_title: String::from("Selected"),
+            disable_delete: false,
+            disable_add: false,
+            disable_edit: false,
+        }
+    }
+}
+
 struct Options{
-    restrict_delete: Vec<usize>,
-    depth_names: Vec<String>,
+    page_options: Vec<PageOptions>,
 }
 
 impl Options{
     pub fn new() -> Options {
         Options{
-            restrict_delete: Vec::new(),
-            depth_names: Vec::new(),
+            page_options: Vec::new(),
         }
     }
 }
@@ -82,6 +103,14 @@ impl App{
             current: 0,
             options: Options::new(),
             depth: 0,
+        }
+    }
+
+    pub fn get_current_page_options(&self) -> PageOptions {
+        if self.options.page_options.len()-1 >= self.depth {
+            self.options.page_options[self.depth].clone()
+        } else {
+            PageOptions::new(format!("{}", self.depth))
         }
     }
 
@@ -195,7 +224,7 @@ impl App{
     }
 
     pub fn delete_selected_item(&mut self) {
-        if !self.options.restrict_delete.contains(&self.depth) {
+        if !self.get_current_page_options().disable_delete {
             match self.lists[self.current].selected {
                 Some(index) => {
                     self.lists[self.current].items[index].list_index = None;
@@ -228,12 +257,16 @@ fn main() -> Result<(), failure::Error> {
     list.selected = Some(0);
 
     let mut app = App::new(list);
-    app.options.restrict_delete = vec!(0);
-    app.options.depth_names = vec!(
-        String::from("Example1"),
-        String::from("Example2"),
-        String::from("Example3"),
-    );
+
+    let mut page_options = vec![
+        PageOptions::new(String::from("Example1")),
+        PageOptions::new(String::from("Example2")),
+        PageOptions::new(String::from("Example3")),
+    ];
+    page_options[0].disable_delete = true;
+    page_options[2].disable_add = true;
+
+    app.options.page_options = page_options;
 
     run(app)
 }
@@ -260,6 +293,8 @@ fn run(mut app: App) -> Result<(), failure::Error> {
     let events = Events::new();
 
     'main: loop {
+        let page_options = app.get_current_page_options();
+
         terminal.draw(|mut f| {
             let wrapper_chunks = Layout::default()
                 .direction(Direction::Vertical)
@@ -275,13 +310,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                 .style(Style::default().bg(Color::Black));
 
             let list = app.get_current_list();
-
-            let list_type_name = if app.options.depth_names.len()-1 >= app.depth {
-                app.options.depth_names[app.depth].clone()
-            } else {
-                format!("Level {}", app.depth)
-            };
-            let title = format!("{}: {}", list_type_name, list.name);
+            let title = format!("{}: {}", page_options.title, list.name);
 
             Paragraph::new([
                 Text::styled(
@@ -311,7 +340,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
 
             let style = Style::default().fg(Color::Black).bg(Color::White);
             SelectableList::default()
-                .block(Block::default().borders(Borders::ALL).title("Menu"))
+                .block(Block::default().borders(Borders::ALL).title(page_options.menu_box_title.as_str()))
                 .items(&list.items.iter().map(|i| { i.name.clone() }).collect::<Vec<_>>())
                 .select(list.selected)
                 .style(style)
@@ -323,11 +352,18 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                 Some(item) => {
                     let mut usage = vec![
                         "ctrl-c: exit",
-                        "a: add items to selection",
-                        "e: edit selection",
+                        "q: go to previous page",
                     ];
 
-                    if !app.options.restrict_delete.contains(&app.depth) {
+                    if !page_options.disable_add {
+                        usage.push("a: add items to selection");
+                    }
+
+                    if !page_options.disable_edit {
+                        usage.push("a: edit selection");
+                    }
+
+                    if !page_options.disable_delete {
                         usage.push("d: delete selection");
                     }
 
@@ -356,7 +392,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     });
 
                     TuiList::new(item_info)
-                        .block(Block::default().borders(Borders::ALL).title("Selected"))
+                        .block(Block::default().borders(Borders::ALL).title(page_options.selected_box_title.as_str()))
                         .start_corner(Corner::TopLeft)
                         .render(&mut f, info_chunks[1]);
 

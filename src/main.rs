@@ -23,6 +23,7 @@ struct PageOptions{
     title: String,
     menu_box_title: String,
     selected_box_title: String,
+    list_box_title: String,
     disable_delete: bool,
     disable_add: bool,
     disable_edit: bool,
@@ -34,6 +35,7 @@ impl PageOptions{
             title: title,
             menu_box_title: String::from("Menu"),
             selected_box_title: String::from("Selected"),
+            list_box_title: String::from("List"),
             disable_delete: false,
             disable_add: false,
             disable_edit: false,
@@ -301,14 +303,13 @@ fn run(mut app: App) -> Result<(), failure::Error> {
             let wrapper_chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Percentage(5),
-                    Constraint::Percentage(95),
+                    Constraint::Percentage(10),
+                    Constraint::Percentage(90),
                 ].as_ref())
                 .split(f.size());
 
             let block = Block::default()
-                .borders(Borders::LEFT | Borders::RIGHT)
-                .border_style(Style::default().fg(Color::White))
+                .borders(Borders::ALL)
                 .style(Style::default().bg(Color::Black));
 
             let list = app.get_current_list();
@@ -354,7 +355,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                 Some(item) => {
                     let mut usage = vec![
                         "ctrl-c: exit",
-                        "q: go to previous page",
+                        "b: back to previous page",
                     ];
 
                     if !page_options.disable_add {
@@ -408,7 +409,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                             });
 
                             TuiList::new(item_list)
-                                .block(Block::default().borders(Borders::ALL).title("Items"))
+                                .block(Block::default().borders(Borders::ALL).title(page_options.list_box_title.as_str()))
                                 .start_corner(Corner::TopLeft)
                                 .render(&mut f, info_chunks[2]);
                         }
@@ -426,7 +427,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                 Key::Ctrl('c') => {
                     break;
                 }
-                Key::Char('q') => {
+                Key::Char('b') => {
                     app.close_current_list();
                 }
                 Key::Left => {
@@ -509,15 +510,42 @@ fn run(mut app: App) -> Result<(), failure::Error> {
 }
 
 fn draw_add_menu(terminal: &mut Term, app: &App, user_input: String) -> Result<(), failure::Error> {
+    let page_options = app.get_current_page_options();
+
     terminal.draw(|mut f| {
         let wrapper_chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(2)
             .constraints([
+                Constraint::Percentage(10),
                 Constraint::Percentage(20),
-                Constraint::Percentage(80),
+                Constraint::Percentage(70),
             ].as_ref())
             .split(f.size());
+
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .style(Style::default().bg(Color::Black));
+
+        let title: String;
+        match app.get_selected_item() {
+            Some(item) => {
+                title = format!("{}", item.name);
+            }
+            None => {
+                let list = app.get_current_list();
+                title = format!("{}", list.name);
+            }
+        }
+
+        Paragraph::new([
+            Text::styled(
+                title,
+                Style::default().fg(Color::Red).modifier(Modifier::BOLD),
+            )].iter())
+            .block(block.clone())
+            .alignment(Alignment::Center)
+            .render(&mut f, wrapper_chunks[0]);
 
         let usage = vec![
             "ctrl-s: save and return to previous window",
@@ -533,12 +561,12 @@ fn draw_add_menu(terminal: &mut Term, app: &App, user_input: String) -> Result<(
         TuiList::new(usage_info)
             .block(Block::default().borders(Borders::ALL).title("Commands"))
             .start_corner(Corner::TopLeft)
-            .render(&mut f, wrapper_chunks[0]);
+            .render(&mut f, wrapper_chunks[1]);
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(3), Constraint::Min(1)].as_ref())
-            .split(wrapper_chunks[1]);
+            .split(wrapper_chunks[2]);
 
         Paragraph::new([Text::raw(&user_input)].iter())
             .style(Style::default().fg(Color::Yellow))
@@ -553,7 +581,7 @@ fn draw_add_menu(terminal: &mut Term, app: &App, user_input: String) -> Result<(
                     .enumerate()
                     .map(|(i, m)| Text::raw(format!("{}: {}", i, m.name)));
                 TuiList::new(text_list)
-                    .block(Block::default().borders(Borders::ALL).title("List"))
+                    .block(Block::default().borders(Borders::ALL).title(page_options.list_box_title.as_str()))
                     .render(&mut f, chunks[1]);
             }
             None => {}

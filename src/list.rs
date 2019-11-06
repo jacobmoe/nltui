@@ -2,7 +2,7 @@
 pub struct List{
     pub name: String,
     pub items: Vec<Item>,
-    selected: Option<usize>,
+    pub selected: Option<usize>,
     pub previous: Option<usize>,
 }
 

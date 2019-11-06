@@ -151,8 +151,6 @@ impl App{
                 Some(selected_item) => {
                     match selected_item.list_index {
                         Some(index) => {
-                            self.lists[self.current].previous = Some(self.current);
-
                             self.current = index;
                             self.depth = self.depth + 1;
 

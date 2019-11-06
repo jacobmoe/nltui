@@ -41,7 +41,7 @@ pub fn run(list: List, page_options: Vec<PageOptions>) -> Result<(), failure::Er
     let root = InternList::new(list.name);
     let mut app = App::new(root);
 
-    for item in from_supplied_items(&mut app, &list.items) {
+    for item in items_from_supplied(&mut app, 0, &list.items) {
         app.lists[0].items.push(item);
     }
 
@@ -53,20 +53,25 @@ pub fn run(list: List, page_options: Vec<PageOptions>) -> Result<(), failure::Er
     app::run(app)
 }
 
-fn from_supplied_items(app: &mut App, items: &Vec<Item>) -> Vec<InternItem> {
-    if items.len() == 0 {
+fn items_from_supplied(app: &mut App, current_list_index: usize, supplied_items: &Vec<Item>) -> Vec<InternItem> {
+    if supplied_items.len() == 0 {
         return Vec::new();
     }
 
-    items.iter().map(|i| {
-        let mut item = InternItem::new(i.id.clone(), i.name.clone());
-        match &i.list {
-            Some(list) => {
-                let list_index = app.add_list(list.name.clone());
-                item.list_index = Some(list_index);
-                let items = &list.items;
+    supplied_items.iter().map(|supplied_item| {
+        let mut item = InternItem::new(
+            supplied_item.id.clone(),
+            supplied_item.name.clone(),
+        );
 
-                for next_item in from_supplied_items(app, items) {
+        match &supplied_item.list {
+            Some(next_supplied_list) => {
+                let list_index = app.add_list(next_supplied_list.name.clone());
+                app.lists[list_index].previous = Some(current_list_index);
+
+                item.list_index = Some(list_index);
+
+                for next_item in items_from_supplied(app, list_index, &next_supplied_list.items) {
                     app.lists[list_index].items.push(next_item);
                 }
 

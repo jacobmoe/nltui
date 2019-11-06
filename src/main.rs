@@ -1,4 +1,5 @@
 mod util;
+mod list;
 
 use std::io::{self, Write};
 
@@ -15,6 +16,7 @@ use tui::Terminal;
 use unicode_width::UnicodeWidthStr;
 
 use crate::util::event::{Event, Events};
+use crate::list::{List, Item};
 
 type Term = Terminal<TermionBackend<AlternateScreen<MouseTerminal<termion::raw::RawTerminal<std::io::Stdout>>>>>;
 
@@ -55,42 +57,6 @@ impl Options{
     }
 }
 
-#[derive(Debug, Clone)]
-struct List{
-    name: String,
-    items: Vec<Item>,
-    selected: Option<usize>,
-    previous: Option<usize>,
-}
-
-impl List{
-    pub fn new(name: String) -> List {
-        List{
-            name: name,
-            items: Vec::new(),
-            selected: None,
-            previous: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct Item {
-    id: String,
-    name: String,
-    list_index: Option<usize>,
-}
-
-impl Item{
-    pub fn new(id: String, name: String) -> Item {
-        Item{
-            id: id,
-            name: name.clone(),
-            list_index: None,
-        }
-    }
-}
-
 struct App{
     lists: Vec<List>,
     current: usize,
@@ -116,20 +82,15 @@ impl App{
         }
     }
 
-    pub fn get_current_list(&self) -> List {
-        self.lists[self.current].clone()
+    pub fn get_current_list(&self) -> &List {
+        &self.lists[self.current]
     }
 
-    pub fn get_selected_item(&self) -> Option<Item> {
-        match self.lists[self.current].selected {
-            Some(selected) => {
-                return Some(self.lists[self.current].items[selected].clone());
-            }
-            None => { return None; }
-        }
+    pub fn get_selected_item(&self) -> Option<&Item> {
+        self.lists[self.current].get_selected_item()
     }
 
-    pub fn get_list_for_selected(&self) -> Option<List> {
+    pub fn get_list_for_selected_item(&self) -> Option<List> {
         match self.lists[self.current].selected {
             Some(selected) => {
                 match self.lists[self.current].items[selected].list_index {
@@ -180,7 +141,7 @@ impl App{
         self.lists[self.current].selected = selected;
     }
 
-    pub fn can_go_back(&mut self) -> bool {
+    pub fn can_go_back(&self) -> bool {
         match self.lists[self.current].previous {
             Some(_) => {
                 true
@@ -413,7 +374,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                         .start_corner(Corner::TopLeft)
                         .render(&mut f, info_chunks[1]);
 
-                    match app.get_list_for_selected() {
+                    match app.get_list_for_selected_item() {
                         Some(nested_list) => {
                             let item_list = nested_list.items.iter().map(|i| {
                                 Text::styled(
@@ -434,7 +395,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
             }
         })?;
 
-        let mut list = app.get_current_list();
+        let list = app.get_current_list();
 
         match events.next()? {
             Event::Input(input) => match input {
@@ -445,7 +406,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     app.close_current_list();
                 }
                 Key::Left => {
-                    list.selected = None;
+                    app.close_current_list();
                 }
                 Key::Down => {
                     let s = if let Some(selected) = list.selected {
@@ -587,7 +548,7 @@ fn draw_add_menu(terminal: &mut Term, app: &App, user_input: String) -> Result<(
             .block(Block::default().borders(Borders::ALL).title("Input"))
             .render(&mut f, chunks[0]);
 
-        match app.get_list_for_selected() {
+        match app.get_list_for_selected_item() {
             Some(list) => {
                 let text_list = list
                     .items

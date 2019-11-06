@@ -90,12 +90,12 @@ impl App{
         self.lists[self.current].get_selected_item()
     }
 
-    pub fn get_list_for_selected_item(&self) -> Option<List> {
-        match self.lists[self.current].selected {
+    pub fn get_list_for_selected_item(&self) -> Option<&List> {
+        match self.lists[self.current].get_selected_item() {
             Some(selected) => {
-                match self.lists[self.current].items[selected].list_index {
+                match selected.list_index {
                     Some(selected_item_list_index) => {
-                        return Some(self.lists[selected_item_list_index].clone());
+                        return Some(&self.lists[selected_item_list_index]);
                     }
                     None => { return None; }
 
@@ -114,31 +114,34 @@ impl App{
     }
 
     pub fn add_list_item(&mut self, name: String, id: String) {
-        let item = Item::new(id, name.clone());
 
-        match self.lists[self.current].selected {
-            Some(selected_item_index) => {
-                match self.lists[self.current].items[selected_item_index].list_index {
+        match self.lists[self.current].get_selected_item() {
+            Some(selected_item) => {
+                match selected_item.list_index {
                     Some(_) => {}
                     None => {
                         let index = self.add_list(name.clone());
-                        self.lists[self.current].items[selected_item_index].list_index = Some(index);
+                        let list = &mut self.lists[self.current];
+
+                        list.set_selected_item_list_index(Some(index));
                     }
                 }
 
-                match self.lists[self.current].items[selected_item_index].list_index {
-                    Some(list_index) => {
-                        self.lists[list_index].items.push(item);
+                let item = Item::new(id, name.clone());
+                match self.lists[self.current].get_selected_item() {
+                    Some(selected_item) => {
+                        match selected_item.list_index {
+                            Some(list_index) => {
+                                self.lists[list_index].items.push(item);
+                            }
+                            None => {}
+                        }
                     }
                     None => {}
                 }
             }
             None => {}
         }
-    }
-
-    pub fn set_item_selection(&mut self, selected: Option<usize>) {
-        self.lists[self.current].selected = selected;
     }
 
     pub fn can_go_back(&self) -> bool {
@@ -160,12 +163,12 @@ impl App{
 
                 // if list that was just closed doesn't have any items,
                 // remove list_index from item that owns the list
-                match self.lists[self.current].selected {
-                    Some(selected) => {
-                        match self.lists[self.current].items[selected].list_index {
+                match self.lists[self.current].get_selected_item() {
+                    Some(selected_item) => {
+                        match selected_item.list_index {
                             Some(index) => {
                                 if self.lists[index].items.len() == 0 {
-                                    self.lists[self.current].items[selected].list_index = None;
+                                    self.lists[self.current].set_selected_item_list_index(None);
                                 }
                             }
                             None => {}
@@ -180,15 +183,15 @@ impl App{
 
     pub fn open_selected_item_list(&mut self) {
         if !self.get_current_page_options().disable_edit {
-            match self.lists[self.current].selected {
-                Some(selected_item_index) => {
-                    match self.lists[self.current].items[selected_item_index].list_index {
+            match self.lists[self.current].get_selected_item() {
+                Some(selected_item) => {
+                    match selected_item.list_index {
                         Some(index) => {
                             self.current = index;
                             self.depth = self.depth + 1;
 
                             if self.lists[index].items.len() > 0 {
-                                self.lists[index].selected = Some(0);
+                                self.lists[index].set_selected_item_index(Some(0));
                             }
                         }
                         None => {}
@@ -201,15 +204,12 @@ impl App{
 
     pub fn delete_selected_item(&mut self) {
         if !self.get_current_page_options().disable_delete {
-            match self.lists[self.current].selected {
-                Some(index) => {
-                    self.lists[self.current].items[index].list_index = None;
-                    self.lists[self.current].items.remove(index);
+            match self.lists[self.current].get_selected_item() {
+                Some(_) => {
+                    self.lists[self.current].set_selected_item_list_index(None);
+                    self.lists[self.current].remove_selected_item();
 
-                    if self.lists[self.current].items.len() > 0 {
-                        self.lists[self.current].selected = Some(0);
-                    } else {
-                        self.lists[self.current].selected = None;
+                    if self.lists[self.current].items.len() == 0 {
                         self.close_current_list();
                     }
                 }
@@ -230,7 +230,7 @@ fn main() -> Result<(), failure::Error> {
 
     let mut list = List::new(String::from("list name"));
     list.items = items;
-    list.selected = Some(0);
+    list.set_selected_item_index(Some(0));
 
     let mut app = App::new(list);
 
@@ -317,7 +317,7 @@ fn run(mut app: App) -> Result<(), failure::Error> {
             SelectableList::default()
                 .block(Block::default().borders(Borders::ALL).title(page_options.menu_box_title.as_str()))
                 .items(&list.items.iter().map(|i| { i.name.clone() }).collect::<Vec<_>>())
-                .select(list.selected)
+                .select(list.get_selected_item_index())
                 .style(style)
                 .highlight_style(style.fg(Color::LightGreen).modifier(Modifier::BOLD))
                 .highlight_symbol("=>")
@@ -395,8 +395,6 @@ fn run(mut app: App) -> Result<(), failure::Error> {
             }
         })?;
 
-        let list = app.get_current_list();
-
         match events.next()? {
             Event::Input(input) => match input {
                 Key::Ctrl('c') => {
@@ -409,30 +407,10 @@ fn run(mut app: App) -> Result<(), failure::Error> {
                     app.close_current_list();
                 }
                 Key::Down => {
-                    let s = if let Some(selected) = list.selected {
-                        if selected >= list.items.len() - 1 {
-                            Some(0)
-                        } else {
-                            Some(selected + 1)
-                        }
-                    } else {
-                        Some(0)
-                    };
-
-                    app.set_item_selection(s);
+                    (&mut app.lists[app.current]).decrement_selected();
                 }
                 Key::Up => {
-                    let s = if let Some(selected) = list.selected {
-                        if selected > 0 {
-                            Some(selected - 1)
-                        } else {
-                            Some(list.items.len() - 1)
-                        }
-                    } else {
-                        Some(0)
-                    };
-
-                    app.set_item_selection(s);
+                    (&mut app.lists[app.current]).increment_selected();
                 }
                 Key::Char('a') => {
                     if !page_options.disable_add {

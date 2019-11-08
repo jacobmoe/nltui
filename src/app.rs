@@ -48,7 +48,7 @@ impl App{
     }
 
     fn get_current_page_options(&self) -> PageOptions {
-        if self.options.page_options.len()-1 >= self.depth {
+        if self.options.page_options.len() > self.depth {
             self.options.page_options[self.depth].clone()
         } else {
             PageOptions::new(format!("{}", self.depth))
@@ -181,221 +181,222 @@ impl App{
             }
         }
     }
-}
 
-pub fn run(mut app: App) -> Result<(), failure::Error> {
-    if app.lists.len() == 0 {
-        println!("No root list found");
-        return Ok(());
-    }
-
-    if app.lists[0].items.len() == 0 {
-        println!("No items in root list");
-        return Ok(());
-    }
-
-    // Terminal initialization
-    let stdout = io::stdout().into_raw_mode()?;
-    let stdout = MouseTerminal::from(stdout);
-    let stdout = AlternateScreen::from(stdout);
-    let backend = TermionBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-    terminal.hide_cursor()?;
-
-    let events = Events::new();
-
-    'main: loop {
-        let page_options = app.get_current_page_options();
-
-        terminal.draw(|mut f| {
-            let wrapper_chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Percentage(10),
-                    Constraint::Percentage(90),
-                ].as_ref())
-                .split(f.size());
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .style(Style::default().bg(Color::Black));
-
-            let list = app.get_current_list();
-            let title = format!("{}: {}", page_options.title, list.name);
-
-            Paragraph::new([
-                Text::styled(
-                    title,
-                    Style::default().fg(Color::Red).modifier(Modifier::BOLD),
-                )].iter())
-                .block(block.clone())
-                .alignment(Alignment::Center)
-                .render(&mut f, wrapper_chunks[0]);
-
-            let primary_chunks = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([
-                    Constraint::Percentage(30),
-                    Constraint::Percentage(70),
-                ].as_ref())
-                .split(wrapper_chunks[1]);
-
-            let info_chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Percentage(20),
-                    Constraint::Percentage(20),
-                    Constraint::Percentage(60),
-                ].as_ref())
-                .split(primary_chunks[1]);
-
-            let style = Style::default().fg(Color::Black).bg(Color::White);
-            SelectableList::default()
-                .block(Block::default().borders(Borders::ALL).title(page_options.menu_box_title.as_str()))
-                .items(&list.items.iter().map(|i| { i.name.clone() }).collect::<Vec<_>>())
-                .select(list.get_selected_item_index())
-                .style(style)
-                .highlight_style(style.fg(Color::LightGreen).modifier(Modifier::BOLD))
-                .highlight_symbol("=>")
-                .render(&mut f, primary_chunks[0]);
-
-            match app.get_selected_item() {
-                Some(item) => {
-                    let mut usage = vec![
-                        "ctrl-c: exit",
-                    ];
-
-                    if app.can_go_back() {
-                        usage.push("b: back to previous page");
-                    }
-
-                    if !page_options.disable_add {
-                        usage.push("a: add items to selection");
-                    }
-
-                    if !page_options.disable_edit {
-                        usage.push("e: edit selection");
-                    }
-
-                    if !page_options.disable_delete {
-                        usage.push("d: delete selection");
-                    }
-
-                    let usage_info = usage.iter().map(|i| {
-                        Text::styled(
-                            format!("{}", i),
-                            Style::default().fg(Color::Green),
-                        )
-                    });
-
-                    TuiList::new(usage_info)
-                        .block(Block::default().borders(Borders::ALL).title("Navigation"))
-                        .start_corner(Corner::TopLeft)
-                        .render(&mut f, info_chunks[0]);
-
-                    let fields = vec![
-                        format!("ID: {}", item.id),
-                        format!("Name: {}", item.name),
-                    ];
-
-                    let item_info = fields.iter().map(|i| {
-                        Text::styled(
-                            format!("{}", i),
-                            Style::default().fg(Color::White),
-                        )
-                    });
-
-                    TuiList::new(item_info)
-                        .block(Block::default().borders(Borders::ALL).title(page_options.selected_box_title.as_str()))
-                        .start_corner(Corner::TopLeft)
-                        .render(&mut f, info_chunks[1]);
-
-                    match app.get_list_for_selected_item() {
-                        Some(nested_list) => {
-                            let item_list = nested_list.items.iter().map(|i| {
-                                Text::styled(
-                                    format!("{}", i.name),
-                                    Style::default().fg(Color::Yellow),
-                                )
-                            });
-
-                            TuiList::new(item_list)
-                                .block(Block::default().borders(Borders::ALL).title(page_options.list_box_title.as_str()))
-                                .start_corner(Corner::TopLeft)
-                                .render(&mut f, info_chunks[2]);
-                        }
-                        None => {}
-                    }
-                }
-                None => {}
-            }
-        })?;
-
-        match events.next()? {
-            Event::Input(input) => match input {
-                Key::Ctrl('c') => {
-                    break;
-                }
-                Key::Char('b') => {
-                    app.close_current_list();
-                }
-                Key::Left => {
-                    app.close_current_list();
-                }
-                Key::Down => {
-                    (&mut app.lists[app.current]).decrement_selected();
-                }
-                Key::Up => {
-                    (&mut app.lists[app.current]).increment_selected();
-                }
-                Key::Char('a') => {
-                    if !page_options.disable_add {
-                        let mut user_input: String = String::new();
-
-                        'input: loop {
-                            draw_add_menu(&mut terminal, &app, user_input.clone())?;
-
-                            // Handle input
-                            match events.next()? {
-                                Event::Input(input) => match input {
-                                    Key::Ctrl('c') => {
-                                        break 'main;
-                                    }
-                                    Key::Ctrl('s') => {
-                                        break;
-                                    }
-                                    Key::Char('\n') => {
-                                        if user_input != "" {
-                                            let input: String = user_input.drain(..).collect();
-                                            let id = input.clone();
-                                            let name = input.clone();
-
-                                            app.add_list_item(id, name);
-                                        }
-                                    }
-                                    Key::Char(c) => {
-                                        user_input.push(c);
-                                    }
-                                    Key::Backspace => {
-                                        user_input.pop();
-                                    }
-                                    _ => {}
-                                },
-                            }
-                        };
-                    }
-                }
-                Key::Char('e') => {
-                    app.open_selected_item_list();
-                }
-                Key::Char('d') => {
-                    app.delete_selected_item();
-                }
-                _ => {}
-            },
+    pub fn run(&mut self) -> Result<(), failure::Error> {
+        if self.lists.len() == 0 {
+            println!("No root list found");
+            return Ok(());
         }
+
+        if self.lists[0].items.len() == 0 {
+            println!("No items in root list");
+            return Ok(());
+        }
+
+        // Terminal initialization
+        let stdout = io::stdout().into_raw_mode()?;
+        let stdout = MouseTerminal::from(stdout);
+        let stdout = AlternateScreen::from(stdout);
+        let backend = TermionBackend::new(stdout);
+        let mut terminal = Terminal::new(backend)?;
+        terminal.hide_cursor()?;
+
+        let events = Events::new();
+
+        'main: loop {
+            let page_options = self.get_current_page_options();
+
+            terminal.draw(|mut f| {
+                let wrapper_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Percentage(10),
+                        Constraint::Percentage(90),
+                    ].as_ref())
+                    .split(f.size());
+
+                let block = Block::default()
+                    .borders(Borders::ALL)
+                    .style(Style::default().bg(Color::Black));
+
+                let list = self.get_current_list();
+                let title = format!("{}: {}", page_options.title, list.name);
+
+                Paragraph::new([
+                    Text::styled(
+                        title,
+                        Style::default().fg(Color::Red).modifier(Modifier::BOLD),
+                    )].iter())
+                    .block(block.clone())
+                    .alignment(Alignment::Center)
+                    .render(&mut f, wrapper_chunks[0]);
+
+                let primary_chunks = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([
+                        Constraint::Percentage(30),
+                        Constraint::Percentage(70),
+                    ].as_ref())
+                    .split(wrapper_chunks[1]);
+
+                let info_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(20),
+                        Constraint::Percentage(60),
+                    ].as_ref())
+                    .split(primary_chunks[1]);
+
+                let style = Style::default().fg(Color::Black).bg(Color::White);
+                SelectableList::default()
+                    .block(Block::default().borders(Borders::ALL).title(page_options.menu_box_title.as_str()))
+                    .items(&list.items.iter().map(|i| { i.name.clone() }).collect::<Vec<_>>())
+                    .select(list.get_selected_item_index())
+                    .style(style)
+                    .highlight_style(style.fg(Color::LightGreen).modifier(Modifier::BOLD))
+                    .highlight_symbol("=>")
+                    .render(&mut f, primary_chunks[0]);
+
+                match self.get_selected_item() {
+                    Some(item) => {
+                        let mut usage = vec![
+                            "ctrl-c: exit",
+                        ];
+
+                        if self.can_go_back() {
+                            usage.push("b: back to previous page");
+                        }
+
+                        if !page_options.disable_add {
+                            usage.push("a: add items to selection");
+                        }
+
+                        if !page_options.disable_edit {
+                            usage.push("e: edit selection");
+                        }
+
+                        if !page_options.disable_delete {
+                            usage.push("d: delete selection");
+                        }
+
+                        let usage_info = usage.iter().map(|i| {
+                            Text::styled(
+                                format!("{}", i),
+                                Style::default().fg(Color::Green),
+                            )
+                        });
+
+                        TuiList::new(usage_info)
+                            .block(Block::default().borders(Borders::ALL).title("Navigation"))
+                            .start_corner(Corner::TopLeft)
+                            .render(&mut f, info_chunks[0]);
+
+                        let fields = vec![
+                            format!("ID: {}", item.id),
+                            format!("Name: {}", item.name),
+                        ];
+
+                        let item_info = fields.iter().map(|i| {
+                            Text::styled(
+                                format!("{}", i),
+                                Style::default().fg(Color::White),
+                            )
+                        });
+
+                        TuiList::new(item_info)
+                            .block(Block::default().borders(Borders::ALL).title(page_options.selected_box_title.as_str()))
+                            .start_corner(Corner::TopLeft)
+                            .render(&mut f, info_chunks[1]);
+
+                        match self.get_list_for_selected_item() {
+                            Some(nested_list) => {
+                                let item_list = nested_list.items.iter().map(|i| {
+                                    Text::styled(
+                                        format!("{}", i.name),
+                                        Style::default().fg(Color::Yellow),
+                                    )
+                                });
+
+                                TuiList::new(item_list)
+                                    .block(Block::default().borders(Borders::ALL).title(page_options.list_box_title.as_str()))
+                                    .start_corner(Corner::TopLeft)
+                                    .render(&mut f, info_chunks[2]);
+                            }
+                            None => {}
+                        }
+                    }
+                    None => {}
+                }
+            })?;
+
+            match events.next()? {
+                Event::Input(input) => match input {
+                    Key::Ctrl('c') => {
+                        break;
+                    }
+                    Key::Char('b') => {
+                        self.close_current_list();
+                    }
+                    Key::Left => {
+                        self.close_current_list();
+                    }
+                    Key::Down => {
+                        (&mut self.lists[self.current]).decrement_selected();
+                    }
+                    Key::Up => {
+                        (&mut self.lists[self.current]).increment_selected();
+                    }
+                    Key::Char('a') => {
+                        if !page_options.disable_add {
+                            let mut user_input: String = String::new();
+
+                            'input: loop {
+                                draw_add_menu(&mut terminal, &self, user_input.clone())?;
+
+                                // Handle input
+                                match events.next()? {
+                                    Event::Input(input) => match input {
+                                        Key::Ctrl('c') => {
+                                            break 'main;
+                                        }
+                                        Key::Ctrl('s') => {
+                                            break;
+                                        }
+                                        Key::Char('\n') => {
+                                            if user_input != "" {
+                                                let input: String = user_input.drain(..).collect();
+                                                let id = input.clone();
+                                                let name = input.clone();
+
+                                                self.add_list_item(id, name);
+                                            }
+                                        }
+                                        Key::Char(c) => {
+                                            user_input.push(c);
+                                        }
+                                        Key::Backspace => {
+                                            user_input.pop();
+                                        }
+                                        _ => {}
+                                    },
+                                }
+                            };
+                        }
+                    }
+                    Key::Char('e') => {
+                        self.open_selected_item_list();
+                    }
+                    Key::Char('d') => {
+                        self.delete_selected_item();
+                    }
+                    _ => {}
+                },
+            }
+        }
+        Ok(())
     }
-    Ok(())
+
 }
 
 fn draw_add_menu(terminal: &mut Term, app: &App, user_input: String) -> Result<(), failure::Error> {

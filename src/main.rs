@@ -35,14 +35,15 @@ fn main() -> Result<(), failure::Error> {
         ]
     };
 
-    let mut page_options = vec![
-        nltui::PageOptions::new(String::from("Example1")),
-        nltui::PageOptions::new(String::from("Example2")),
-        nltui::PageOptions::new(String::from("Example3")),
-    ];
+    // let mut page_options = vec![
+    //     nltui::PageOptions::new(String::from("Example1")),
+    //     nltui::PageOptions::new(String::from("Example2")),
+    //     nltui::PageOptions::new(String::from("Example3")),
+    // ];
 
-    page_options[0].disable_delete = true;
-    page_options[2].disable_add = true;
+    // page_options[0].disable_delete = true;
+    // page_options[2].disable_add = true;
 
-    nltui::run(list, page_options)
+    let mut ui = nltui::UI::new(list);
+    ui.run()
 }

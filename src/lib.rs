@@ -7,6 +7,7 @@ use crate::app::{App};
 pub use crate::options::{PageOptions};
 use crate::list::{List as InternList, Item as InternItem};
 
+
 pub struct List {
     pub name: String,
     pub items: Vec<Item>,
@@ -37,7 +38,26 @@ impl Item {
     }
 }
 
-pub fn run(list: List, page_options: Vec<PageOptions>) -> Result<(), failure::Error> {
+pub struct UI {
+    app: App,
+}
+
+impl UI {
+    pub fn new(list: List) -> UI {
+        UI{app: init_app(list)}
+    }
+
+    pub fn set_page_options(&mut self, page_options: Vec<PageOptions>) {
+        self.app.options.page_options = page_options
+    }
+
+    pub fn run(&mut self) -> Result<(), failure::Error> {
+        self.app.run()
+    }
+}
+
+
+pub fn init_app(list: List) -> App {
     let root = InternList::new(list.name);
     let mut app = App::new(root);
 
@@ -49,8 +69,7 @@ pub fn run(list: List, page_options: Vec<PageOptions>) -> Result<(), failure::Er
         app.lists[0].selected = Some(0);
     }
 
-    app.set_page_options(page_options);
-    app::run(app)
+    app
 }
 
 fn items_from_user(app: &mut App, current_list_index: usize, user_items: &Vec<Item>) -> Vec<InternItem> {

@@ -8,6 +8,7 @@ pub use crate::options::{PageOptions};
 use crate::list::{List as InternList, Item as InternItem};
 
 
+#[derive(Debug, Clone)]
 pub struct List {
     pub name: String,
     pub items: Vec<Item>,
@@ -22,6 +23,7 @@ impl List {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Item {
     pub id: String,
     pub name: String,
@@ -51,13 +53,23 @@ impl UI {
         self.app.options.page_options = page_options
     }
 
+    pub fn on_save(&mut self, handler: Box<Fn(List) -> ()>) {
+        let h = Box::new(move |lists: Vec<InternList>| {
+            let root = &lists[0];
+            let items = items_to_user(&lists, &root.items);
+            handler(List::new(root.name.clone(), items))
+        });
+
+        self.app.register_save_handler(h);
+    }
+
     pub fn run(&mut self) -> Result<(), failure::Error> {
         self.app.run()
     }
 }
 
 
-pub fn init_app(list: List) -> App {
+fn init_app(list: List) -> App {
     let root = InternList::new(list.name);
     let mut app = App::new(root);
 
@@ -105,7 +117,7 @@ fn items_from_user(app: &mut App, current_list_index: usize, user_items: &Vec<It
     }).collect()
 }
 
-fn items_to_user(app: &App, items: &Vec<InternItem>) -> Vec<Item> {
+fn items_to_user(lists: &Vec<InternList>, items: &Vec<InternItem>) -> Vec<Item> {
     if items.len() == 0 {
         return Vec::new();
     }
@@ -120,11 +132,11 @@ fn items_to_user(app: &App, items: &Vec<InternItem>) -> Vec<Item> {
         match item.list_index {
             Some(index) => {
                 let mut next_user_list = List::new(
-                    app.lists[index].name.clone(),
+                    lists[index].name.clone(),
                     Vec::new(),
                 );
 
-                for next_user_item in items_to_user(app, &app.lists[index].items) {
+                for next_user_item in items_to_user(lists, &lists[index].items) {
                     next_user_list.items.push(next_user_item);
                 }
 

@@ -23,6 +23,7 @@ pub struct App{
     current: usize,
     pub options: Options,
     depth: usize,
+    on_save: Box<Fn(Vec<List>) -> ()>,
 }
 
 impl App{
@@ -32,7 +33,16 @@ impl App{
             current: 0,
             options: Options::new(),
             depth: 0,
+            on_save: Box::new(|_: Vec<List>| ()),
         }
+    }
+
+    pub fn register_save_handler(&mut self, on_save: Box<Fn(Vec<List>) -> ()>) {
+        self.on_save = on_save
+    }
+
+    pub fn save(&self) {
+        (self.on_save)(self.lists.clone())
     }
 
     pub fn set_page_options(&mut self, page_options: Vec<PageOptions>) {
@@ -335,9 +345,6 @@ impl App{
                     Key::Ctrl('c') => {
                         break;
                     }
-                    Key::Char('b') => {
-                        self.close_current_list();
-                    }
                     Key::Left => {
                         self.close_current_list();
                     }
@@ -346,6 +353,12 @@ impl App{
                     }
                     Key::Up => {
                         (&mut self.lists[self.current]).increment_selected();
+                    }
+                    Key::Char('b') => {
+                        self.close_current_list();
+                    }
+                    Key::Char('S') => {
+                        self.save();
                     }
                     Key::Char('a') => {
                         if !page_options.disable_add {

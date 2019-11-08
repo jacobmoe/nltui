@@ -45,5 +45,9 @@ fn main() -> Result<(), failure::Error> {
     // page_options[2].disable_add = true;
 
     let mut ui = nltui::UI::new(list);
+    ui.on_save(Box::new(|list: nltui::List| {
+        println!("=======> {:?}", list);
+    }));
+
     ui.run()
 }

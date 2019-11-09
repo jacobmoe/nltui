@@ -7,7 +7,6 @@ use crate::app::{App};
 pub use crate::options::{PageOptions};
 use crate::list::{List as InternList, Item as InternItem};
 
-
 #[derive(Debug, Clone)]
 pub struct List {
     pub name: String,
@@ -66,8 +65,11 @@ impl UI {
     pub fn run(&mut self) -> Result<(), failure::Error> {
         self.app.run()
     }
-}
 
+    pub fn stop(&mut self) {
+        self.app.stop();
+    }
+}
 
 fn init_app(list: List) -> App {
     let root = InternList::new(list.name);

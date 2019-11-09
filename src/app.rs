@@ -24,6 +24,7 @@ pub struct App{
     pub options: Options,
     depth: usize,
     on_save: Box<Fn(Vec<List>) -> ()>,
+    running: bool,
 }
 
 impl App{
@@ -34,6 +35,7 @@ impl App{
             options: Options::new(),
             depth: 0,
             on_save: Box::new(|_: Vec<List>| ()),
+            running: false,
         }
     }
 
@@ -45,8 +47,8 @@ impl App{
         (self.on_save)(self.lists.clone())
     }
 
-    pub fn set_page_options(&mut self, page_options: Vec<PageOptions>) {
-        self.options.page_options = page_options;
+    pub fn stop(&mut self) {
+        self.running = false;
     }
 
     pub fn add_list(&mut self, name: String) -> usize {
@@ -203,6 +205,8 @@ impl App{
             return Ok(());
         }
 
+        self.running = true;
+
         // Terminal initialization
         let stdout = io::stdout().into_raw_mode()?;
         let stdout = MouseTerminal::from(stdout);
@@ -215,6 +219,10 @@ impl App{
 
         'main: loop {
             let page_options = self.get_current_page_options();
+
+            if !self.running {
+                break 'main;
+            }
 
             terminal.draw(|mut f| {
                 let wrapper_chunks = Layout::default()
@@ -365,6 +373,10 @@ impl App{
                             let mut user_input: String = String::new();
 
                             'input: loop {
+                                if !self.running {
+                                    break 'main;
+                                }
+
                                 draw_add_menu(&mut terminal, &self, user_input.clone())?;
 
                                 // Handle input

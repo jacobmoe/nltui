@@ -23,7 +23,7 @@ pub struct App{
     current: usize,
     pub options: Options,
     depth: usize,
-    on_save: Box<Fn(Vec<List>) -> ()>,
+    on_save: Box<dyn Fn(Vec<List>) -> ()>,
     running: bool,
 }
 
@@ -39,7 +39,7 @@ impl App{
         }
     }
 
-    pub fn register_save_handler(&mut self, on_save: Box<Fn(Vec<List>) -> ()>) {
+    pub fn register_save_handler(&mut self, on_save: Box<dyn Fn(Vec<List>) -> ()>) {
         self.on_save = on_save
     }
 
@@ -238,7 +238,7 @@ impl App{
                     .style(Style::default().bg(Color::Black));
 
                 let list = self.get_current_list();
-                let title = format!("{}: {}", page_options.title, list.name);
+                let title = format!("{}", list.name);
 
                 Paragraph::new([
                     Text::styled(

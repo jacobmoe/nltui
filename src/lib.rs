@@ -52,7 +52,7 @@ impl UI {
         self.app.options.page_options = page_options
     }
 
-    pub fn on_save(&mut self, handler: Box<Fn(List) -> ()>) {
+    pub fn on_save(&mut self, handler: Box<dyn Fn(List) -> ()>) {
         let h = Box::new(move |lists: Vec<InternList>| {
             let root = &lists[0];
             let items = items_to_user(&lists, &root.items);

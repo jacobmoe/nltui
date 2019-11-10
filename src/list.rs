@@ -90,14 +90,16 @@ impl List{
 pub struct Item {
     pub id: String,
     pub name: String,
+    pub body: String,
     pub list_index: Option<usize>,
 }
 
 impl Item{
-    pub fn new(id: String, name: String) -> Item {
+    pub fn new(id: String, name: String, body: String) -> Item {
         Item{
             id: id,
             name: name.clone(),
+            body: body.clone(),
             list_index: None,
         }
     }

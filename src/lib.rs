@@ -26,14 +26,16 @@ impl List {
 pub struct Item {
     pub id: String,
     pub name: String,
+    pub body: String,
     pub list: Option<List>,
 }
 
 impl Item {
-    pub fn new(id: String, name: String, list: Option<List>) -> Item {
+    pub fn new(id: String, name: String, body: String, list: Option<List>) -> Item {
         Item{
             id: id,
             name: name,
+            body: body,
             list: list,
         }
     }
@@ -52,7 +54,7 @@ impl UI {
         self.app.options.page_options = page_options
     }
 
-    pub fn on_save(&mut self, handler: Box<Fn(List) -> ()>) {
+    pub fn on_save(&mut self, handler: Box<dyn Fn(List) -> ()>) {
         let h = Box::new(move |lists: Vec<InternList>| {
             let root = &lists[0];
             let items = items_to_user(&lists, &root.items);
@@ -95,6 +97,7 @@ fn items_from_user(app: &mut App, current_list_index: usize, user_items: &Vec<It
         let mut item = InternItem::new(
             user_item.id.clone(),
             user_item.name.clone(),
+            user_item.body.clone(),
         );
 
         match &user_item.list {
@@ -128,6 +131,7 @@ fn items_to_user(lists: &Vec<InternList>, items: &Vec<InternItem>) -> Vec<Item> 
         let mut user_item = Item::new(
             item.id.clone(),
             item.name.clone(),
+            item.body.clone(),
             None,
         );
 

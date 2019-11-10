@@ -23,7 +23,7 @@ pub struct App{
     current: usize,
     pub options: Options,
     depth: usize,
-    on_save: Box<Fn(Vec<List>) -> ()>,
+    on_save: Box<dyn Fn(Vec<List>) -> ()>,
     running: bool,
 }
 
@@ -39,7 +39,7 @@ impl App{
         }
     }
 
-    pub fn register_save_handler(&mut self, on_save: Box<Fn(Vec<List>) -> ()>) {
+    pub fn register_save_handler(&mut self, on_save: Box<dyn Fn(Vec<List>) -> ()>) {
         self.on_save = on_save
     }
 
@@ -90,7 +90,7 @@ impl App{
         }
     }
 
-    fn add_list_item(&mut self, name: String, id: String) {
+    fn add_list_item(&mut self, name: String, id: String, body: String) {
         match self.lists[self.current].get_selected_item() {
             Some(selected_item) => {
                 match selected_item.list_index {
@@ -103,7 +103,7 @@ impl App{
                     }
                 }
 
-                let item = Item::new(id, name.clone());
+                let item = Item::new(id, name.clone(), body.clone());
                 match self.lists[self.current].get_selected_item() {
                     Some(selected_item) => {
                         match selected_item.list_index {
@@ -257,27 +257,40 @@ impl App{
                     ].as_ref())
                     .split(wrapper_chunks[1]);
 
-                let info_chunks = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([
-                        Constraint::Percentage(20),
-                        Constraint::Percentage(20),
-                        Constraint::Percentage(60),
-                    ].as_ref())
-                    .split(primary_chunks[1]);
-
-                let style = Style::default().fg(Color::Black).bg(Color::White);
-                SelectableList::default()
-                    .block(Block::default().borders(Borders::ALL).title(page_options.menu_box_title.as_str()))
-                    .items(&list.items.iter().map(|i| { i.name.clone() }).collect::<Vec<_>>())
-                    .select(list.get_selected_item_index())
-                    .style(style)
-                    .highlight_style(style.fg(Color::LightGreen).modifier(Modifier::BOLD))
-                    .highlight_symbol("=>")
-                    .render(&mut f, primary_chunks[0]);
-
                 match self.get_selected_item() {
                     Some(item) => {
+                        let mut info_chunks = Layout::default()
+                            .direction(Direction::Vertical)
+                            .constraints([
+                                Constraint::Percentage(20),
+                                Constraint::Percentage(30),
+                                Constraint::Percentage(50),
+                            ].as_ref())
+                            .split(primary_chunks[1]);
+
+                        if item.body == "" {
+                            info_chunks = Layout::default()
+                                .direction(Direction::Vertical)
+                                .constraints([
+                                    Constraint::Percentage(30),
+                                    Constraint::Percentage(70),
+                                ].as_ref())
+                                .split(primary_chunks[1]);
+                        }
+
+                        let style = Style::default().fg(Color::Black).bg(Color::White);
+                        SelectableList::default()
+                            .block(Block::default().borders(Borders::ALL).title(page_options.menu_box_title.as_str()))
+                            .items(&list.items.iter().map(|i| { i.name.clone() }).collect::<Vec<_>>())
+                            .select(list.get_selected_item_index())
+                            .style(style)
+                            .highlight_style(style.fg(Color::LightGreen).modifier(Modifier::BOLD))
+                            .highlight_symbol("=>")
+                            .render(&mut f, primary_chunks[0]);
+
+
+
+
                         let mut usage = vec![
                             "ctrl-c: exit",
                         ];
@@ -305,10 +318,13 @@ impl App{
                             )
                         });
 
-                        TuiList::new(usage_info)
-                            .block(Block::default().borders(Borders::ALL).title("Navigation"))
-                            .start_corner(Corner::TopLeft)
-                            .render(&mut f, info_chunks[0]);
+                        let info_top_chunks = Layout::default()
+                            .direction(Direction::Horizontal)
+                            .constraints([
+                                Constraint::Percentage(50),
+                                Constraint::Percentage(50),
+                            ].as_ref())
+                            .split(info_chunks[0]);
 
                         let fields = vec![
                             format!("ID: {}", item.id),
@@ -322,9 +338,26 @@ impl App{
                             )
                         });
 
+                        // Item id and name
                         TuiList::new(item_info)
                             .block(Block::default().borders(Borders::ALL).title(page_options.selected_box_title.as_str()))
                             .start_corner(Corner::TopLeft)
+                            .render(&mut f, info_top_chunks[0]);
+
+                        // Navigation
+                        TuiList::new(usage_info)
+                            .block(Block::default().borders(Borders::ALL).title("Navigation"))
+                            .start_corner(Corner::TopLeft)
+                            .render(&mut f, info_top_chunks[1]);
+
+                        // Item body
+                        Paragraph::new([
+                            Text::styled(
+                                format!("{}", item.body),
+                                Style::default().fg(Color::White).modifier(Modifier::BOLD),
+                            )].iter())
+                            .block(Block::default().borders(Borders::ALL).title(page_options.body_box_title.as_str()))
+                            .alignment(Alignment::Left)
                             .render(&mut f, info_chunks[1]);
 
                         match self.get_list_for_selected_item() {
@@ -336,6 +369,7 @@ impl App{
                                     )
                                 });
 
+                                // Item list items
                                 TuiList::new(item_list)
                                     .block(Block::default().borders(Borders::ALL).title(page_options.list_box_title.as_str()))
                                     .start_corner(Corner::TopLeft)
@@ -393,8 +427,9 @@ impl App{
                                                 let input: String = user_input.drain(..).collect();
                                                 let id = input.clone();
                                                 let name = input.clone();
+                                                let body = input.clone();
 
-                                                self.add_list_item(id, name);
+                                                self.add_list_item(id, name, body);
                                             }
                                         }
                                         Key::Char(c) => {

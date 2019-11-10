@@ -7,18 +7,21 @@ fn main() -> Result<(), failure::Error> {
             nltui::Item{
                 id: String::from("item 1 for first list"),
                 name: String::from("item 1 for first list"),
+                body: String::from("item 1 for first list"),
                 list: Some(nltui::List{
                     name: String::from("second list"),
                     items: vec![
                         nltui::Item{
                             id: String::from("item 1 for second list"),
                             name: String::from("item 1 for second list"),
+                            body: String::from("item 1 for second list"),
                             list: Some(nltui::List{
                                 name: String::from("third list"),
                                 items: vec![
                                     nltui::Item{
                                         id: String::from("item 1 for third list"),
                                         name: String::from("item 1 for third list"),
+                                        body: String::from("item 1 for third list"),
                                         list: None,
                                     },
                                 ],
@@ -30,6 +33,7 @@ fn main() -> Result<(), failure::Error> {
             nltui::Item{
                 id: String::from("item 2 for first list"),
                 name: String::from("item 2 for first list"),
+                body: String::from("item 2 for first list"),
                 list: None,
             },
         ]
@@ -48,7 +52,7 @@ fn main() -> Result<(), failure::Error> {
     ui.set_page_options(page_options);
 
     ui.on_save(Box::new(|list: nltui::List| {
-        // do something with list
+        println!("{:?}", list);
     }));
 
     ui.run()

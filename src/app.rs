@@ -278,15 +278,18 @@ impl App{
 
                 match self.get_selected_item() {
                     Some(item) => {
+                        let mut usage = vec![
+                            "ctrl-c: exit",
+                        ];
+
                         let save_description = format!(
                             "W: {}",
                             page_options.save_command_description.clone()
                         );
 
-                        let mut usage = vec![
-                            "ctrl-c: exit",
-                            save_description.as_str(),
-                        ];
+                        if !page_options.disable_save {
+                            usage.push(save_description.as_str());
+                        }
 
                         if self.can_go_back() {
                             usage.push("b: back to previous page");

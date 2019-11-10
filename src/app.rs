@@ -278,8 +278,14 @@ impl App{
 
                 match self.get_selected_item() {
                     Some(item) => {
+                        let save_description = format!(
+                            "W: {}",
+                            page_options.save_command_description.clone()
+                        );
+
                         let mut usage = vec![
                             "ctrl-c: exit",
+                            save_description.as_str(),
                         ];
 
                         if self.can_go_back() {
@@ -362,11 +368,11 @@ impl App{
                     Key::Up => {
                         (&mut self.lists[self.current]).increment_selected();
                     }
+                    Key::Char('W') => {
+                        self.save();
+                    }
                     Key::Char('b') => {
                         self.close_current_list();
-                    }
-                    Key::Char('S') => {
-                        self.save();
                     }
                     Key::Char('a') => {
                         if !page_options.disable_add {

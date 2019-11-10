@@ -48,7 +48,7 @@ fn main() -> Result<(), failure::Error> {
     ui.set_page_options(page_options);
 
     ui.on_save(Box::new(|list: nltui::List| {
-        // do something with list
+        println!("{:?}", list);
     }));
 
     ui.run()

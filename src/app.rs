@@ -23,8 +23,9 @@ pub struct App{
     current: usize,
     pub options: Options,
     depth: usize,
-    on_save: Box<dyn Fn(Vec<List>) -> ()>,
+    on_save: Box<dyn Fn(Vec<List>) -> Option<String>>,
     running: bool,
+    notification: Option<String>,
 }
 
 impl App{
@@ -34,17 +35,18 @@ impl App{
             current: 0,
             options: Options::new(),
             depth: 0,
-            on_save: Box::new(|_: Vec<List>| ()),
+            on_save: Box::new(|_: Vec<List>| None),
             running: false,
+            notification: None,
         }
     }
 
-    pub fn register_save_handler(&mut self, on_save: Box<dyn Fn(Vec<List>) -> ()>) {
+    pub fn register_save_handler(&mut self, on_save: Box<dyn Fn(Vec<List>) -> Option<String>>) {
         self.on_save = on_save
     }
 
-    pub fn save(&self) {
-        (self.on_save)(self.lists.clone())
+    pub fn save(&mut self) {
+        self.notification = (self.on_save)(self.lists.clone());
     }
 
     pub fn stop(&mut self) {
@@ -132,6 +134,8 @@ impl App{
     }
 
     fn close_current_list(&mut self) {
+        self.notification = None;
+
         match self.lists[self.current].previous {
             Some(previous_index) => {
                 self.current = previous_index;
@@ -158,6 +162,8 @@ impl App{
     }
 
     fn open_selected_item_list(&mut self) {
+        self.notification = None;
+
         if !self.get_current_page_options().disable_edit {
             match self.lists[self.current].get_selected_item() {
                 Some(selected_item) => {
@@ -238,18 +244,27 @@ impl App{
                     .style(Style::default().bg(Color::Black));
 
                 let list = self.get_current_list();
-                let title = format!("{}", list.name);
+                let mut title = format!("{}: {}", page_options.title, list.name);
+                let mut title_color = Color::Blue;
+
+                match self.notification.clone() {
+                    Some(notice) => {
+                        title = format!("{} | {}", notice, title);
+                        title_color = Color::Red;
+                    }
+                    None => {}
+                }
 
                 Paragraph::new([
                     Text::styled(
                         title,
-                        Style::default().fg(Color::Red).modifier(Modifier::BOLD),
+                        Style::default().fg(title_color).modifier(Modifier::BOLD),
                     )].iter())
                     .block(block.clone())
                     .alignment(Alignment::Center)
                     .render(&mut f, wrapper_chunks[0]);
 
-                let primary_chunks = Layout::default()
+                let body_chunks = Layout::default()
                     .direction(Direction::Horizontal)
                     .constraints([
                         Constraint::Percentage(30),
@@ -264,7 +279,7 @@ impl App{
                         Constraint::Percentage(20),
                         Constraint::Percentage(60),
                     ].as_ref())
-                    .split(primary_chunks[1]);
+                    .split(body_chunks[1]);
 
                 let style = Style::default().fg(Color::Black).bg(Color::White);
                 SelectableList::default()
@@ -274,7 +289,7 @@ impl App{
                     .style(style)
                     .highlight_style(style.fg(Color::LightGreen).modifier(Modifier::BOLD))
                     .highlight_symbol("=>")
-                    .render(&mut f, primary_chunks[0]);
+                    .render(&mut f, body_chunks[0]);
 
                 match self.get_selected_item() {
                     Some(item) => {

@@ -57,10 +57,11 @@ fn main() -> Result<(), failure::Error> {
     let mut ui = nltui::UI::new(list);
     ui.set_page_options(page_options);
 
-    ui.on_save(Box::new(|list: nltui::List| {
-        // do something with list
+    ui.on_save(Box::new(|_list: nltui::List| {
+        Some(String::from("SAVED!"))
     }));
 
     ui.run()
 }
+
 ```

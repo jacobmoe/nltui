@@ -249,7 +249,7 @@ impl App{
 
                 match self.notification.clone() {
                     Some(notice) => {
-                        title = format!("{} | {}", notice, title);
+                        title = format!("{}", notice);
                         title_color = Color::Red;
                     }
                     None => {}
@@ -315,7 +315,7 @@ impl App{
                         }
 
                         if !page_options.disable_edit {
-                            usage.push("e: edit selection");
+                            usage.push("e: enter selection");
                         }
 
                         if !page_options.disable_delete {
@@ -379,6 +379,9 @@ impl App{
                     }
                     Key::Left => {
                         self.close_current_list();
+                    }
+                    Key::Right => {
+                        self.open_selected_item_list();
                     }
                     Key::Down => {
                         (&mut self.lists[self.current]).decrement_selected();

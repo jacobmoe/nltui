@@ -58,6 +58,10 @@ impl List{
     }
 
     pub fn increment_selected(&mut self) {
+        if self.items.len() == 0 {
+            return
+        }
+
         let s = if let Some(selected) = self.selected {
             if selected > 0 {
                 Some(selected - 1)
@@ -72,6 +76,10 @@ impl List{
     }
 
     pub fn decrement_selected(&mut self) {
+        if self.items.len() == 0 {
+            return
+        }
+
         let s = if let Some(selected) = self.selected {
             if selected >= self.items.len() - 1 {
                 Some(0)

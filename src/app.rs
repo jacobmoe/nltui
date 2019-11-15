@@ -245,7 +245,7 @@ impl App{
 
                 let list = self.get_current_list();
                 let mut title = format!("{}: {}", page_options.title, list.name);
-                let mut title_color = Color::Blue;
+                let mut title_color = Color::Gray;
 
                 match self.notification.clone() {
                     Some(notice) => {
@@ -281,14 +281,14 @@ impl App{
                     ].as_ref())
                     .split(body_chunks[1]);
 
-                let style = Style::default().fg(Color::Black).bg(Color::White);
+                let style = Style::default().fg(Color::Gray);
                 SelectableList::default()
                     .block(Block::default().borders(Borders::ALL).title(page_options.menu_box_title.as_str()))
                     .items(&list.items.iter().map(|i| { i.name.clone() }).collect::<Vec<_>>())
                     .select(list.get_selected_item_index())
                     .style(style)
-                    .highlight_style(style.fg(Color::LightGreen).modifier(Modifier::BOLD))
-                    .highlight_symbol("=>")
+                    .highlight_style(style.fg(Color::LightBlue).modifier(Modifier::BOLD))
+                    .highlight_symbol(">")
                     .render(&mut f, body_chunks[0]);
 
                 match self.get_selected_item() {
@@ -325,7 +325,7 @@ impl App{
                         let usage_info = usage.iter().map(|i| {
                             Text::styled(
                                 format!("{}", i),
-                                Style::default().fg(Color::Green),
+                                Style::default().fg(Color::Gray),
                             )
                         });
 
@@ -342,7 +342,7 @@ impl App{
                         let item_info = fields.iter().map(|i| {
                             Text::styled(
                                 format!("{}", i),
-                                Style::default().fg(Color::White),
+                                Style::default().fg(Color::LightBlue),
                             )
                         });
 
@@ -483,7 +483,7 @@ fn draw_add_menu(terminal: &mut Term, app: &App, user_input: String) -> Result<(
         Paragraph::new([
             Text::styled(
                 title,
-                Style::default().fg(Color::Red).modifier(Modifier::BOLD),
+                Style::default().fg(Color::Gray).modifier(Modifier::BOLD),
             )].iter())
             .block(block.clone())
             .alignment(Alignment::Center)
@@ -496,7 +496,7 @@ fn draw_add_menu(terminal: &mut Term, app: &App, user_input: String) -> Result<(
         let usage_info = usage.iter().map(|i| {
             Text::styled(
                 format!("{}", i),
-                Style::default().fg(Color::Green),
+                Style::default().fg(Color::Gray),
             )
         });
 

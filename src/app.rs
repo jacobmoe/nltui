@@ -133,6 +133,22 @@ impl App{
         }
     }
 
+    fn can_go_forward(&self) -> bool {
+        match self.lists[self.current].get_selected_item() {
+            Some(selected_item) => {
+                match selected_item.list_index {
+                    Some(item_list_index) => {
+                        return self.lists[item_list_index].items.len() > 0;
+                    }
+                    None => {}
+                }
+            }
+            None => {}
+        }
+
+        return false
+    }
+
     fn close_current_list(&mut self) {
         self.notification = None;
 
@@ -314,15 +330,10 @@ impl App{
                             usage.push("a: add items to selection");
                         }
 
-                        match item.list_index {
-                            Some(item_list_index) => {
-                                if self.lists[item_list_index].items.len() > 0 {
-                                    if !page_options.disable_edit {
-                                        usage.push("e: enter selection");
-                                    }
-                                }
+                        if self.can_go_forward() {
+                            if !page_options.disable_edit {
+                                usage.push("e: enter selection");
                             }
-                            None => {}
                         }
 
                         if !page_options.disable_delete {

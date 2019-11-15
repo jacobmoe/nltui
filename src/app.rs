@@ -314,8 +314,15 @@ impl App{
                             usage.push("a: add items to selection");
                         }
 
-                        if !page_options.disable_edit {
-                            usage.push("e: enter selection");
+                        match item.list_index {
+                            Some(item_list_index) => {
+                                if self.lists[item_list_index].items.len() > 0 {
+                                    if !page_options.disable_edit {
+                                        usage.push("e: enter selection");
+                                    }
+                                }
+                            }
+                            None => {}
                         }
 
                         if !page_options.disable_delete {
